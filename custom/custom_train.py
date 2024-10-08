@@ -18,10 +18,10 @@ from tqdm.auto import tqdm
 from transformers import GenerationConfig, get_cosine_schedule_with_warmup
 
 try:
-    from custom.custom_dataloader import ICPRCollator
-    from custom.custom_dataset import (TOKEN_MAP, ICPRDataset,
+    from custom_dataloader import ICPRCollator
+    from custom_dataset import (TOKEN_MAP, ICPRDataset,
                                      create_train_transforms)
-    from custom.custom_model import ICPRModel
+    from custom_model import ICPRModel
     from ..code.utils.constants import EXCLUDE_IDS
     from ..code.utils.data_utils import process_annotations
     from ..code.utils.metric_utils import compute_metrics
