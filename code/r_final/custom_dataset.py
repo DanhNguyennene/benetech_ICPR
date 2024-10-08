@@ -32,7 +32,8 @@ TOKEN_MAP = {
   "y0": ["[<y0>]", "[</y0>]"],
   "id": ["[<id>]", "[</id>]"],
   "polygon": ["[<polygon>]", "[</polygon>]"],
-  "role": ["[<role>]", "[</role>]"]
+  "role": ["[<role>]", "[</role>]"],
+  "bos_token" : ["[</s>]"]
 }
 
 def tokenize_dict(data: dict, token_mapping: dict):
