@@ -19,10 +19,10 @@ from tqdm.auto import tqdm
 from transformers import GenerationConfig, get_cosine_schedule_with_warmup
 
 try:
-    from r_scatter.mga_dataloader import MGACollator
-    from r_scatter.mga_dataset import (TOKEN_MAP, MGADataset,
+    from r_scatter.mga_dataloader import ICPRCollator
+    from r_scatter.mga_dataset import (TOKEN_MAP, ICPRDataset,
                                        create_train_transforms)
-    from r_scatter.mga_model import AWP, MGAModel
+    from r_scatter.mga_model import AWP, ICPRModel
     from utils.constants import EXCLUDE_IDS
     from utils.data_utils import process_annotations
     from utils.metric_utils import compute_metrics
@@ -369,8 +369,8 @@ def run_training(cfg):
         train_transforms = create_train_transforms()
         print_line()
 
-    mga_train_ds = MGADataset(cfg, train_ids, transform=train_transforms)
-    mga_valid_ds = MGADataset(cfg, valid_ids)
+    mga_train_ds = ICPRDataset(cfg, train_ids, transform=train_transforms)
+    mga_valid_ds = ICPRDataset(cfg, valid_ids)
 
     tokenizer = mga_train_ds.processor.tokenizer
     cfg.model.len_tokenizer = len(tokenizer)
@@ -380,7 +380,7 @@ def run_training(cfg):
     cfg.model.bos_token_id = tokenizer.convert_tokens_to_ids([BOS_TOKEN])[0]
 
     # ------- data collators --------------------------------------------------------------#
-    collate_fn = MGACollator(tokenizer=tokenizer)
+    collate_fn = ICPRCollator(tokenizer=tokenizer)
 
     train_dl = DataLoader(
         mga_train_ds,
@@ -424,8 +424,8 @@ def run_training(cfg):
 
     # ------- Model --------------------------------------------------------------------#
     print_line()
-    print("creating the MGA model...")
-    model = MGAModel(cfg)  # get_model(cfg)
+    print("creating the ICPR model...")
+    model = ICPRModel(cfg)  # get_model(cfg)
     print_line()
 
     print("loading model from previously trained checkpoint...")
