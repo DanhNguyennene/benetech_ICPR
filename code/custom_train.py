@@ -18,14 +18,14 @@ from tqdm.auto import tqdm
 from transformers import GenerationConfig, get_cosine_schedule_with_warmup
 
 try:
-    from benetech_ICPR.custom_dataloader import ICPRCollator
-    from benetech_ICPR.custom_datset import (TOKEN_MAP, ICPRDataset,
+    from r_final.custom_dataloader import ICPRCollator
+    from r_final.custom_dataset import (TOKEN_MAP, ICPRDataset,
                                      create_train_transforms)
-    from benetech_ICPR.custom_model import ICPRModel
-    from benetech_ICPR.code.utils.constants import EXCLUDE_IDS
-    from benetech_ICPR.code.utils.constants import process_annotations
-    from benetech_ICPR.code.utils.constants import compute_metrics
-    from benetech_ICPR.code.utils.constants import (EMA, AverageMeter, as_minutes, get_lr,
+    from r_final.custom_model import ICPRModel
+    from utils.constants import EXCLUDE_IDS
+    from utils.data_utils import process_annotations
+    from utils.metric_utils import compute_metrics
+    from utils.train_utils import (EMA, AverageMeter, as_minutes, get_lr,
                                    init_wandb, print_gpu_utilization,
                                    print_line, save_checkpoint,
                                    seed_everything)
