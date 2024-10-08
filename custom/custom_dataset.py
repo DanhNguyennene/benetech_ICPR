@@ -164,3 +164,47 @@ class ICPRDataset(Dataset):
             r['decoder_attention_mask'] = p_txt['attention_mask']
 
         return r
+    
+def create_train_transforms():
+    """
+    Returns transformations.
+
+    Returns:
+        albumentations transforms: transforms.
+    """
+
+    transforms = A.Compose(
+        [
+            A.OneOf(
+                [
+                    A.RandomToneCurve(scale=0.3),
+                    A.RandomBrightnessContrast(
+                        brightness_limit=(-0.1, 0.2),
+                        contrast_limit=(-0.4, 0.5),
+                        brightness_by_max=True,
+                    ),
+                    A.HueSaturationValue(
+                        hue_shift_limit=(-20, 20),
+                        sat_shift_limit=(-30, 30),
+                        val_shift_limit=(-20, 20)
+                    )
+                ],
+                p=0.5,
+            ),
+
+            A.OneOf(
+                [
+                    A.MotionBlur(blur_limit=3),
+                    A.MedianBlur(blur_limit=3),
+                    A.GaussianBlur(blur_limit=3),
+                    A.GaussNoise(var_limit=(3.0, 9.0)),
+                ],
+                p=0.5,
+            ),
+
+            A.Downscale(always_apply=False, p=0.1, scale_min=0.90, scale_max=0.99),
+        ],
+
+        p=0.5,
+    )
+    return transforms
