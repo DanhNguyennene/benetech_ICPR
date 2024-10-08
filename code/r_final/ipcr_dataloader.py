@@ -8,7 +8,7 @@ from transformers import DataCollatorWithPadding
 
 
 @dataclass
-class MGACollator(DataCollatorWithPadding):
+class ICPRCollator(DataCollatorWithPadding):
     """
     data collector for mga task
     """

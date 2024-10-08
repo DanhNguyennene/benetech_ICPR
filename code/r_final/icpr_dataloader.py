@@ -9,15 +9,15 @@ import torch.nn.functional as F
 from transformers import Pix2StructConfig, Pix2StructForConditionalGeneration
 
 
-class MGAModel(nn.Module):
+class ICPRModel(nn.Module):
     """
-    The MGA model
+    The ICPR model
     """
 
     def __init__(self, cfg):
-        print("initializing the MGA model...")
+        print("initializing the ICPR model...")
 
-        super(MGAModel, self).__init__()
+        super(ICPRModel, self).__init__()
         self.cfg = cfg
 
         backbone_config = Pix2StructConfig.from_pretrained(cfg.model.backbone_path)
