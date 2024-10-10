@@ -108,7 +108,6 @@ def run_sanity_check(cfg, batch, tokenizer, prefix="mga", num_examples=8):
 
 #     return chart_type, x, y
 
-
 def run_evaluation(cfg, model, valid_dl, label_df, tokenizer, token_map):
 
     # # config for text generation ---
@@ -145,48 +144,44 @@ def run_evaluation(cfg, model, valid_dl, label_df, tokenizer, token_map):
     progress_bar.close()
 
     # prepare output dataframe ---
-    # preds = []
-
+    preds = []
     extended_preds = []
     for this_id, this_text in zip(all_ids, all_texts):
         id_x = f"{this_id}_x"
         id_y = f"{this_id}_y"
-        # pred_chart, pred_x, pred_y = post_process(this_text, token_map)
+        pred_chart, pred_x, pred_y = post_process(this_text, token_map)
 
-        # preds.append([id_x, pred_x, pred_chart])
-        # preds.append([id_y, pred_y, pred_chart])
+        preds.append([id_x, pred_x, pred_chart])
+        preds.append([id_y, pred_y, pred_chart])
 
-        extended_preds.append([id_x, this_text])
-        extended_preds.append([id_y, this_text])
-        print(this_text)
-    
-    
+        extended_preds.append([id_x, pred_x, pred_chart, this_text])
+        extended_preds.append([id_y, pred_y, pred_chart, this_text])
 
-    # pred_df = pd.DataFrame(preds)
-    # pred_df.columns = ["id", "data_series", "chart_type"]
+    pred_df = pd.DataFrame(preds)
+    pred_df.columns = ["id", "data_series", "chart_type"]
 
-    # eval_dict = compute_metrics(label_df, pred_df)
+    eval_dict = compute_metrics(label_df, pred_df)
 
-    # result_df = pd.DataFrame(extended_preds)
-    # result_df.columns = ["id", "pred_data_series", "pred_chart_type", "pred_text"]
-    # result_df = pd.merge(label_df, result_df, on="id", how="left")
-    # result_df['score'] = eval_dict['scores']  # individual scores
+    result_df = pd.DataFrame(extended_preds)
+    result_df.columns = ["id", "pred_data_series", "pred_chart_type", "pred_text"]
+    result_df = pd.merge(label_df, result_df, on="id", how="left")
+    result_df['score'] = eval_dict['scores']  # individual scores
 
-    # results = {
-    #     "oof_df": pred_df,
-    #     "result_df": result_df,
-    # }
+    results = {
+        "oof_df": pred_df,
+        "result_df": result_df,
+    }
 
-    # for k, v in eval_dict.items():
-    #     if k != 'scores':
-    #         results[k] = v
+    for k, v in eval_dict.items():
+        if k != 'scores':
+            results[k] = v
 
-    # print_line()
-    # print("Evaluation Results:")
-    # # print(results)
-    # print_line()
+    print_line()
+    print("Evaluation Results:")
+    print(results)
+    print_line()
 
-    # return results
+    return results
 
 
 # -------- Main Function ---------------------------------------------------------#
