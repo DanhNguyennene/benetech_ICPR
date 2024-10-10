@@ -416,17 +416,17 @@ def run_training(cfg):
             # >-- evaluation ------------------------------------|
             # >--------------------------------------------------|
 
-            # if (epoch_progress + 1) % cfg.train_params.eval_frequency == 0:
-            #     print("\n")
-            #     print("GPU Utilization before evaluation...")
-            #     print_gpu_utilization()
+            if (epoch_progress + 1) % cfg.train_params.eval_frequency == 0:
+                print("\n")
+                print("GPU Utilization before evaluation...")
+                print_gpu_utilization()
 
-            #     # set model in eval mode
-            #     model.eval()
+                # set model in eval mode
+                model.eval()
 
-            #     # apply ema if it is used ---
-            #     if cfg.train_params.use_ema:
-            #         ema.apply_shadow()
+                # apply ema if it is used ---
+                if cfg.train_params.use_ema:
+                    ema.apply_shadow()
 
                 run_evaluation(
                     cfg,
@@ -440,44 +440,44 @@ def run_training(cfg):
                 # lb = result_dict["lb"]
                 # oof_df = result_dict["oof_df"]
                 # result_df = result_dict["result_df"]
-
+                #
                 # print_line()
                 # et = as_minutes(time.time()-start_time)
                 # print(f">>> Epoch {epoch+1} | Step {step} | Total Step {current_iteration} | Time: {et}")
-
+                #
                 # is_best = False
                 # if lb >= best_lb:
                 #     best_lb = lb
                 #     is_best = True
                 #     patience_tracker = 0
-
+                #
                 #     # ---
                 #     best_dict = dict()
                 #     for k, v in result_dict.items():
                 #         if "df" not in k:
                 #             best_dict[f"{k}_at_best"] = v
-
+                #
                 # else:
                 #     patience_tracker += 1
-
+                #
                 # print_line()
                 # print(f">>> Current LB = {round(lb, 4)}")
                 # for k, v in result_dict.items():
                 #     if ("df" not in k) & (k != "lb"):
                 #         print(f">>> Current {k}={round(v, 4)}")
                 # print_line()
-
+                #
                 # if is_best:
                 #     oof_df.to_csv(os.path.join(cfg.outputs.model_dir, f"oof_df_fold_{fold}_best.csv"), index=False)
                 #     result_df.to_csv(os.path.join(cfg.outputs.model_dir, f"result_df_fold_{fold}_best.csv"), index=False)
-
+                #
                 # else:
                 #     print(f">>> patience reached {patience_tracker}/{cfg_dict['train_params']['patience']}")
                 #     print(f">>> current best score: {round(best_lb, 4)}")
-
+                #
                 # oof_df.to_csv(os.path.join(cfg_dict["outputs"]["model_dir"], f"oof_df_fold_{fold}.csv"), index=False)
                 # result_df.to_csv(os.path.join(cfg.outputs.model_dir, f"result_df_fold_{fold}.csv"), index=False)
-
+                #
                 # # save pickle for analysis
                 # result_df.to_pickle(os.path.join(cfg.outputs.model_dir, f"result_df_fold_{fold}.pkl"))
 
@@ -494,20 +494,20 @@ def run_training(cfg):
                 if best_lb > save_trigger:
                     save_checkpoint(cfg_dict, model_state, is_best=is_best)
 
-                # # logging ----
-                # if cfg.use_wandb:
-                #     wandb.log({"lb": lb}, step=current_iteration)
-                #     wandb.log({"best_lb": best_lb}, step=current_iteration)
+                # logging ----
+                if cfg.use_wandb:
+                    wandb.log({"lb": lb}, step=current_iteration)
+                    wandb.log({"best_lb": best_lb}, step=current_iteration)
 
-                #     # ----
-                #     for k, v in result_dict.items():
-                #         if "df" not in k:
-                #             wandb.log({k: round(v, 4)}, step=current_iteration)
+                    # ----
+                    for k, v in result_dict.items():
+                        if "df" not in k:
+                            wandb.log({k: round(v, 4)}, step=current_iteration)
 
-                #     # --- log best scores dict
-                #     for k, v in best_dict.items():
-                #         if "df" not in k:
-                #             wandb.log({k: round(v, 4)}, step=current_iteration)
+                    # --- log best scores dict
+                    for k, v in best_dict.items():
+                        if "df" not in k:
+                            wandb.log({k: round(v, 4)}, step=current_iteration)
 
                 # -- post eval
                 model.train()
