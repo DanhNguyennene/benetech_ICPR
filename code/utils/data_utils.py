@@ -202,8 +202,8 @@ def process_annotations(cfg, dataset_type="train", num_jobs=8, limit=10000):
     # )
 
     # Create the labels dataframe
-    labels_df = pd.DataFrame(list(chain(*annotations)))
-    return labels_df
+    # labels_df = pd.DataFrame(list(chain(*annotations)))
+    return parquet_df
 
 # def process_annotations(cfg, num_jobs=8):
 #     anno_dir = cfg.competition_dataset.train.annotation_dir.rstrip("/")
