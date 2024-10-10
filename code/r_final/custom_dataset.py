@@ -105,7 +105,7 @@ class ICPRDataset(Dataset):
             ground_truth_str = row["ground_truth"]
             ground_truth = json.loads(ground_truth_str)  # Convert JSON string to dictionary
             
-            chart_type = ground_truth.get('chart-type', 'unknown')  # Safely retrieve chart-type
+            chart_type = ground_truth.get('chart_type', 'unknown')  # Safely retrieve chart-type
 
             # Tokenizing ground truth annotations
             text = tokenize_dict(ground_truth, TOKEN_MAP)  # Assuming tokenize_dict and TOKEN_MAP are defined
