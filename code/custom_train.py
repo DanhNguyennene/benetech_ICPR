@@ -332,11 +332,14 @@ def run_training(cfg):
         train_transforms = create_train_transforms()
         print_line()
 
-    train_ids = None
-    valid_ids = None
 
-    mga_train_ds = ICPRDataset(cfg, train_ids, transform=train_transforms)
-    mga_valid_ds = ICPRDataset(cfg, valid_ids)
+
+    train_parquet_path = cfg.custom.train_parquet_path
+    train_transforms = create_train_transforms() if cfg.use_augmentations else None
+    mga_train_ds = ICPRDataset(cfg, train_parquet_path, transform=train_transforms)
+
+    valid_parquet_path = cfg.custom.valid_parquet_path
+    mga_valid_ds = ICPRDataset(cfg, valid_parquet_path)
 
     tokenizer = mga_train_ds.processor.tokenizer
     cfg.model.len_tokenizer = len(tokenizer)

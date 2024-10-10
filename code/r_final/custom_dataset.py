@@ -76,11 +76,11 @@ def get_processor(cfg):
     processor.tokenizer.add_tokens(tokens_to_add)
     return processor
 
-   class ICPRDataset(Dataset):
-    def __init__(self, cfg, transform=None):
+class ICPRDataset(Dataset):
+    def __init__(self, cfg, parquet_path, transform=None):
         self.cfg = cfg
         self.transform = transform
-        self.parquet_df = pd.read_parquet(cfg.custom.parquet_dir)  # Load Parquet file
+        self.parquet_df = pd.read_parquet(parquet_path)  # Load the specified Parquet file (train or validation)
         self.graph_ids = self.parquet_df.index.tolist()  # Assuming index acts as unique IDs for rows
         
         # Load processor for tokenization
@@ -152,7 +152,7 @@ def get_processor(cfg):
         r['decoder_input_ids'] = p_txt.get('decoder_input_ids', p_txt.get('input_ids'))
         r['decoder_attention_mask'] = p_txt.get('decoder_attention_mask', p_txt.get('attention_mask'))
 
-        return r 
+        return r
 
 def create_train_transforms():
     """
