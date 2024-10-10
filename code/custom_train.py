@@ -206,7 +206,7 @@ def run_training(cfg):
     # label_df = label_df.sort_values(by="source")
     # label_df = label_df.reset_index(drop=True)
 
-    parquet_path = cfg.custom.validation_parquet_path  # Path to the validation Parquet file
+    parquet_path = cfg.custom.valid_parquet_path  # Path to the validation Parquet file
     label_df = pd.read_parquet(parquet_path)
 
     train_parquet_path = cfg.custom.train_parquet_path
