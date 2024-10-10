@@ -150,9 +150,9 @@ class ICPRDataset(Dataset):
             'attention_mask': p_img['attention_mask'],
         }
 
-        # Handle decoder input ids and attention masks
-        r['decoder_input_ids'] = p_txt.get('decoder_input_ids', p_txt.get('input_ids'))
-        r['decoder_attention_mask'] = p_txt.get('decoder_attention_mask', p_txt.get('attention_mask'))
+# Handle decoder input ids and attention masks
+        r['decoder_input_ids'] = p_txt.get('decoder_input_ids') or p_txt.get('input_ids', [])
+        r['decoder_attention_mask'] = p_txt.get('decoder_attention_mask') or p_txt.get('attention_mask', [])
 
         return r
 
