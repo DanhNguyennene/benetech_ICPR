@@ -135,7 +135,7 @@ def _process_json(fp):
 #     )
 #     labels_df = pd.DataFrame(list(chain(*annotations)))
 #     return labels_df
-def process_annotations_(cfg, dataset_type="train", num_jobs=8, limit=10000):
+def process_annotations(cfg, dataset_type="train", num_jobs=8, limit=10000):
     if dataset_type == "train":
         parquet_path = cfg.custom.train_parquet_path  # Path to the train Parquet file
     elif dataset_type == "validation":
