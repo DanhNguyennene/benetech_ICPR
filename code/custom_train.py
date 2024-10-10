@@ -23,7 +23,7 @@ try:
                                      create_train_transforms)
     from r_final.custom_model import ICPRModel
     from utils.constants import EXCLUDE_IDS
-    from utils.data_utils import process_annotations
+    from utils.data_utils import process_annotations,_process_json
     from utils.metric_utils import compute_metrics
     from utils.train_utils import (EMA, AverageMeter, as_minutes, get_lr,
                                    init_wandb, print_gpu_utilization,
