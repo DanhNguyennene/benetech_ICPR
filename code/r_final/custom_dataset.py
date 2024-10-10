@@ -99,14 +99,25 @@ class ICPRDataset(Dataset):
 
     def build_output(self, graph_id):
         row = self.parquet_df.loc[graph_id]
-        ground_truth = row["ground_truth"]  # Assuming 'ground_truth' column contains annotations
-        chart_type = ground_truth['chart-type']  # Assuming 'chart-type' is part of ground truth
+        
+        try:
+            # Load 'ground_truth' as JSON (assuming it is a JSON string in the Parquet file)
+            ground_truth_str = row["ground_truth"]
+            ground_truth = json.loads(ground_truth_str)  # Convert JSON string to dictionary
+            
+            chart_type = ground_truth.get('chart-type', 'unknown')  # Safely retrieve chart-type
 
-        # Tokenizing ground truth annotations
-        text = tokenize_dict(ground_truth, TOKEN_MAP)
-        e_string = self.processor.tokenizer.eos_token
-        res_text = f"{text}{e_string}"
-        return res_text, chart_type
+            # Tokenizing ground truth annotations
+            text = tokenize_dict(ground_truth, TOKEN_MAP)  # Assuming tokenize_dict and TOKEN_MAP are defined
+            e_string = self.processor.tokenizer.eos_token
+            res_text = f"{text}{e_string}"
+            return res_text, chart_type
+        except json.JSONDecodeError as e:
+            print(f"Error decoding JSON for graph_id {graph_id}: {e}")
+            return 'error', 'error_chart'
+        except Exception as e:
+            print(f"Error building output for graph_id {graph_id}: {e}")
+            return 'error', 'error_chart'
 
     def __len__(self):
         return len(self.graph_ids)
