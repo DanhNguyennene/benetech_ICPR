@@ -345,8 +345,9 @@ def run_training(cfg):
     cfg.model.len_tokenizer = len(tokenizer)
 
     cfg.model.pad_token_id = tokenizer.pad_token_id
-    cfg.model.decoder_start_token_id = tokenizer.convert_tokens_to_ids([BOS_TOKEN])[0]
-    cfg.model.bos_token_id = tokenizer.convert_tokens_to_ids([BOS_TOKEN])[0]
+    cfg.model.decoder_start_token_id = tokenizer.convert_tokens_to_ids(BOS_TOKEN)[0]
+    cfg.model.bos_token_id = tokenizer.convert_tokens_to_ids(BOS_TOKEN)[0]
+
 
     # ------- data collators --------------------------------------------------------------#
     collate_fn = ICPRCollator(tokenizer=tokenizer)
