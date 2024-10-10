@@ -140,7 +140,7 @@ class ICPRDataset(Dataset):
             max_length=self.cfg.model.max_length,
         )
 
-        # Building the dictionary for the output
+        # Constructing the output dictionary
         r = {
             'id': graph_id,
             'chart_type': chart_type,
@@ -150,9 +150,9 @@ class ICPRDataset(Dataset):
             'attention_mask': p_img['attention_mask'],
         }
 
-# Handle decoder input ids and attention masks
-        r['decoder_input_ids'] = p_txt.get('decoder_input_ids') or p_txt.get('input_ids', [])
-        r['decoder_attention_mask'] = p_txt.get('decoder_attention_mask') or p_txt.get('attention_mask', [])
+        # Safely handling decoder input ids and attention masks
+        r['decoder_input_ids'] = p_txt.get('decoder_input_ids', p_txt.get('input_ids', []))
+        r['decoder_attention_mask'] = p_txt.get('decoder_attention_mask', p_txt.get('attention_mask', []))
 
         return r
 

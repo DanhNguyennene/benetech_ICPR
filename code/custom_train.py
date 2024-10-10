@@ -564,7 +564,7 @@ def run_training(cfg):
                     cfg,
                     model=model,
                     valid_dl=valid_dl,
-                    label_df=label_df,
+                    # label_df=label_df,
                     tokenizer=tokenizer,
                     token_map=TOKEN_MAP,
                 )
