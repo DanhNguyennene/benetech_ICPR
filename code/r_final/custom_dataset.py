@@ -76,69 +76,61 @@ def get_processor(cfg):
     processor.tokenizer.add_tokens(tokens_to_add)
     return processor
 
-class ICPRDataset(Dataset):
-    def __init__(self, cfg, graph_ids,transform=None):
-
+   class ICPRDataset(Dataset):
+    def __init__(self, cfg, transform=None):
         self.cfg = cfg
-        self.data_dir = cfg.competition_dataset.data_dir.rstrip("/")
-        self.image_dir = os.path.join(self.data_dir, "train", "images")
-        self.annotation_dir = os.path.join(self.data_dir, "train", "annotations")
         self.transform = transform
+        self.parquet_df = pd.read_parquet(cfg.custom.parquet_dir)  # Load Parquet file
+        self.graph_ids = self.parquet_df.index.tolist()  # Assuming index acts as unique IDs for rows
+        
+        # Load processor for tokenization
         self.load_processor()
-        self.graph_ids = deepcopy(graph_ids)
-    
+
     def load_processor(self):
         self.processor = get_processor(self.cfg)
-    
+
     def load_image(self, graph_id):
-        image_path = os.path.join(self.image_dir, f"{graph_id}.jpg")
-        image = Image.open(image_path).convert('RGB')
+        row = self.parquet_df.loc[graph_id]
+        image_data = row["image"]  # Assuming 'image' column contains image byte data
+        image = Image.open(io.BytesIO(image_data)).convert('RGB')  # Convert byte data to PIL Image
         return image
-    
+
     def build_output(self, graph_id):
+        row = self.parquet_df.loc[graph_id]
+        ground_truth = row["ground_truth"]  # Assuming 'ground_truth' column contains annotations
+        chart_type = ground_truth['chart-type']  # Assuming 'chart-type' is part of ground truth
 
-        annotation_path = os.path.join(self.annotation_dir, f"{graph_id}.json")
-
-        with open(annotation_path, 'r') as f:
-            annotation = json.load(f)
-
-        chart_type = ['chart-type']
-        
-        text = tokenize_dict(annotation, TOKEN_MAP)
+        # Tokenizing ground truth annotations
+        text = tokenize_dict(ground_truth, TOKEN_MAP)
         e_string = self.processor.tokenizer.eos_token
         res_text = f"{text}{e_string}"
         return res_text, chart_type
-    
+
     def __len__(self):
         return len(self.graph_ids)
 
-    def __str__(self):
-        string = 'ICPR Dataset'
-        string += f'\tlen = {len(self)}\n'
-        return string
-    
     def __getitem__(self, index):
         graph_id = self.graph_ids[index]
         image = self.load_image(graph_id)
 
-        if self.transform is not None:
+        if self.transform:
             image = np.array(image)
             image = self.transform(image=image)["image"]
 
         try:
             text, chart_type = self.build_output(graph_id)
         except Exception as e:
-            print(f"Error in {graph_id}")
-            print(e)  # e
+            print(f"Error in {graph_id}: {e}")
             text, chart_type = 'error', 'error_chart'
 
+        # Process the image using the processor
         p_img = self.processor(
             images=image,
             max_patches=self.cfg.model.max_patches,
             add_special_tokens=True,
         )
 
-     
+        # Process the text using the processor
         p_txt = self.processor(
             text=text,
             truncation=True,
@@ -146,26 +138,22 @@ class ICPRDataset(Dataset):
             max_length=self.cfg.model.max_length,
         )
 
-        r = {}
-        r['id'] = graph_id
-        r['chart_type'] = chart_type
-        r['image'] = image
-        r['text'] = text
-        r['flattened_patches'] = p_img['flattened_patches']
-        r['attention_mask'] = p_img['attention_mask']
+        # Building the dictionary for the output
+        r = {
+            'id': graph_id,
+            'chart_type': chart_type,
+            'image': image,
+            'text': text,
+            'flattened_patches': p_img['flattened_patches'],
+            'attention_mask': p_img['attention_mask'],
+        }
 
-        try:
-            r['decoder_input_ids'] = p_txt['decoder_input_ids']
-        except KeyError:
-            r['decoder_input_ids'] = p_txt['input_ids']
+        # Handle decoder input ids and attention masks
+        r['decoder_input_ids'] = p_txt.get('decoder_input_ids', p_txt.get('input_ids'))
+        r['decoder_attention_mask'] = p_txt.get('decoder_attention_mask', p_txt.get('attention_mask'))
 
-        try:
-            r['decoder_attention_mask'] = p_txt['decoder_attention_mask']
-        except KeyError:
-            r['decoder_attention_mask'] = p_txt['attention_mask']
+        return r 
 
-        return r
-    
 def create_train_transforms():
     """
     Returns transformations.
