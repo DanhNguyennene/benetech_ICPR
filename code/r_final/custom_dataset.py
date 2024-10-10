@@ -93,7 +93,7 @@ class ICPRDataset(Dataset):
 
     def load_image(self, graph_id):
         row = self.parquet_df.loc[graph_id]
-        image_data = row["image"]  # Assuming 'image' column contains image byte data
+        image_data = row["image"]["bytes"]  # Assuming 'image' column contains image byte data
         image = Image.open(io.BytesIO(image_data)).convert('RGB')  # Convert byte data to PIL Image
         return image
 
