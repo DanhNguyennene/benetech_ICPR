@@ -127,13 +127,15 @@ def _process_json(fp):
     return labels
 
 
-def process_annotations(cfg, num_jobs=8):
+def process_annotations(cfg, num_jobs=8, limit=10000):
     data_dir = cfg.competition_dataset.data_dir.rstrip("/")
-    anno_paths = glob.glob(f"{data_dir}/train/annotations/*.json")
+    anno_paths = glob.glob(f"{data_dir}/train/annotations/*.json")[:limit]  # Limit to 10k
     annotations = Parallel(n_jobs=num_jobs, verbose=1)(
-        delayed(_process_json)(file_path) for file_path in anno_paths)
+        delayed(_process_json)(file_path) for file_path in anno_paths
+    )
     labels_df = pd.DataFrame(list(chain(*annotations)))
     return labels_df
+
 
 # def process_annotations(cfg, num_jobs=8):
 #     anno_dir = cfg.competition_dataset.train.annotation_dir.rstrip("/")
