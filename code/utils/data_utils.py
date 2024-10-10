@@ -67,31 +67,26 @@ def build_outputs(cfg, num_jobs=8):
 
 
 # --- Label utils -----------------------------------------------------------------------#
+def _process_json(row):
+    """Process annotations from a DataFrame row.
 
-def _process_json(fp):
-    """process JSON files with annotations
-
-    :param fp: file path
-    :type fp: str
-    :return: parsed annotation
+    :param row: Row from a DataFrame containing annotations
+    :return: Parsed annotation
     :rtype: dict
     """
 
-    # read annotations ---
-    with open(fp, "r") as f:
-        anno = json.load(f)
+    # Assume `row` contains the necessary fields directly (from Parquet)
+    chart_id = row['id']  # Adjust according to the column name in your Parquet file
+    chart_source = row["source"]
+    chart_type = row['chart-type']
+    chart_data = row['data-series']
 
-    # store necessary data for labels ---
-    chart_id = fp.split("/")[-1].split(".")[0]
-    chart_source = anno["source"]
-    chart_type = anno['chart-type']
-    chart_data = anno['data-series']
-
+    # Sort the chart data if the chart type is scatter
     if chart_type == "scatter":
         chart_data = sorted(chart_data, key=itemgetter('x', 'y'))
 
-    x_dtype = anno['axes']['x-axis']['values-type']
-    y_dtype = anno['axes']['y-axis']['values-type']
+    x_dtype = row['axes']['x-axis']['values-type']
+    y_dtype = row['axes']['y-axis']['values-type']
 
     x_series = [d['x'] for d in chart_data]
     y_series = [d['y'] for d in chart_data]
@@ -99,22 +94,15 @@ def _process_json(fp):
     x_id = f"{chart_id}_x"
     y_id = f"{chart_id}_y"
 
-    # store labels ---
-    # x label
-    labels = []
-
-    labels.append(
+    # Create labels for x and y data
+    labels = [
         {
             "id": x_id,
             "source": chart_source,
             "data_series": x_series,
             "chart_type": chart_type,
             "data_type": x_dtype,
-        }
-    )
-
-    # y label
-    labels.append(
+        },
         {
             "id": y_id,
             "source": chart_source,
@@ -122,9 +110,68 @@ def _process_json(fp):
             "chart_type": chart_type,
             "data_type": y_dtype,
         }
-    )
+    ]
 
     return labels
+
+
+# def _process_json(fp):
+#     """process JSON files with annotations
+#
+#     :param fp: file path
+#     :type fp: str
+#     :return: parsed annotation
+#     :rtype: dict
+#     """
+#
+#     # read annotations ---
+#     with open(fp, "r") as f:
+#         anno = json.load(f)
+#
+#     # store necessary data for labels ---
+#     chart_id = fp.split("/")[-1].split(".")[0]
+#     chart_source = anno["source"]
+#     chart_type = anno['chart-type']
+#     chart_data = anno['data-series']
+#
+#     if chart_type == "scatter":
+#         chart_data = sorted(chart_data, key=itemgetter('x', 'y'))
+#
+#     x_dtype = anno['axes']['x-axis']['values-type']
+#     y_dtype = anno['axes']['y-axis']['values-type']
+#
+#     x_series = [d['x'] for d in chart_data]
+#     y_series = [d['y'] for d in chart_data]
+#
+#     x_id = f"{chart_id}_x"
+#     y_id = f"{chart_id}_y"
+#
+#     # store labels ---
+#     # x label
+#     labels = []
+#
+#     labels.append(
+#         {
+#             "id": x_id,
+#             "source": chart_source,
+#             "data_series": x_series,
+#             "chart_type": chart_type,
+#             "data_type": x_dtype,
+#         }
+#     )
+#
+#     # y label
+#     labels.append(
+#         {
+#             "id": y_id,
+#             "source": chart_source,
+#             "data_series": y_series,
+#             "chart_type": chart_type,
+#             "data_type": y_dtype,
+#         }
+#     )
+#
+#     return labels
 
 
 # def process_annotations(cfg, num_jobs=8, limit=10000):
