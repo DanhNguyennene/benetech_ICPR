@@ -199,12 +199,15 @@ def run_training(cfg):
     # The datasets for LECR Dual Encoder
     # -----------------------------------------------------------------------------------#
 
-    label_df = process_annotations(cfg)["ground_truth"]
-    label_df["original_id"] = label_df["id"].apply(lambda x: x.split("_")[0])
-    label_df = label_df[label_df["original_id"].isin(valid_ids)].copy()
-    label_df = label_df.drop(columns=["original_id"])
-    label_df = label_df.sort_values(by="source")
-    label_df = label_df.reset_index(drop=True)
+    # label_df = process_annotations(cfg)["ground_truth"][0]
+    # label_df["original_id"] = label_df["id"].apply(lambda x: x.split("_")[0])
+    # label_df = label_df[label_df["original_id"].isin(valid_ids)].copy()
+    # label_df = label_df.drop(columns=["original_id"])
+    # label_df = label_df.sort_values(by="source")
+    # label_df = label_df.reset_index(drop=True)
+
+    parquet_path = cfg.custom.validation_parquet_path  # Path to the validation Parquet file
+    label_df = pd.read_parquet(parquet_path)
 
     train_parquet_path = cfg.custom.train_parquet_path
     train_transforms = create_train_transforms() if cfg.use_augmentations else None
