@@ -227,50 +227,51 @@ def run_training(cfg):
     fold = cfg.fold
 
     # ------- load data -----------------------------------------------------------------#
-    print_line()
-    fold_dir = cfg.fold_metadata.fold_dir
-    fold_df = pd.read_parquet(os.path.join(fold_dir, cfg.fold_metadata.fold_path))
+    if cfg.all_data:
+        print_line()
+        fold_dir = cfg.fold_metadata.fold_dir
+        fold_df = pd.read_parquet(os.path.join(fold_dir, cfg.fold_metadata.fold_path))
 
-    # extracted multiplier ---
-    extracted_ids = fold_df[fold_df["kfold"] != 99]["id"].unique().tolist()
-    extracted_ids = [gid for gid in extracted_ids if gid not in EXCLUDE_IDS]
+        # extracted multiplier ---
+        extracted_ids = fold_df[fold_df["kfold"] != 99]["id"].unique().tolist()
+        extracted_ids = [gid for gid in extracted_ids if gid not in EXCLUDE_IDS]
 
-    train_ids = fold_df[fold_df["kfold"].isin(cfg.train_folds)]["id"].unique().tolist()
-    print(f'# images in original train: {len(train_ids)}')
+        train_ids = fold_df[fold_df["kfold"].isin(cfg.train_folds)]["id"].unique().tolist()
+        print(f'# images in original train: {len(train_ids)}')
 
-    # ---- repeat original train ids ----#
-    train_ids = train_ids * cfg.original_multiplier
-    print(f'# images in original train after multiplier: {len(train_ids)}')
+        # ---- repeat original train ids ----#
+        train_ids = train_ids * cfg.original_multiplier
+        print(f'# images in original train after multiplier: {len(train_ids)}')
 
-    # ----------------------------------#
-    print("full-fit: using all data for training...")
-    extracted_train_ids = deepcopy(extracted_ids)  # list(set(train_ids).intersection(set(extracted_ids)))
-    print(f"# extracted train ids: {len(extracted_train_ids)}")
-    extracted_train_ids = extracted_train_ids * max(cfg.extracted_multiplier - 1, 1)
-    if len(extracted_train_ids) > 0:
-        train_ids.extend(extracted_train_ids)
+        # ----------------------------------#
+        print("full-fit: using all data for training...")
+        extracted_train_ids = deepcopy(extracted_ids)  # list(set(train_ids).intersection(set(extracted_ids)))
+        print(f"# extracted train ids: {len(extracted_train_ids)}")
+        extracted_train_ids = extracted_train_ids * max(cfg.extracted_multiplier - 1, 1)
+        if len(extracted_train_ids) > 0:
+            train_ids.extend(extracted_train_ids)
 
-    print(f'# images in original train after extracted multiplier: {len(train_ids)}')
+        print(f'# images in original train after extracted multiplier: {len(train_ids)}')
 
-    # valid ids
-    valid_ids = fold_df[fold_df["kfold"].isin(cfg.valid_folds)]["id"].unique().tolist()
+        # valid ids
+        valid_ids = fold_df[fold_df["kfold"].isin(cfg.valid_folds)]["id"].unique().tolist()
 
-    # labels ---
-    label_df = process_annotations(cfg)
-    label_df["original_id"] = label_df["id"].apply(lambda x: x.split("_")[0])
-    label_df = label_df[label_df["original_id"].isin(valid_ids)].copy()
-    label_df = label_df.drop(columns=["original_id"])
-    label_df = label_df.sort_values(by="source")
-    label_df = label_df.reset_index(drop=True)
+        # labels ---
+        label_df = process_annotations(cfg)
+        label_df["original_id"] = label_df["id"].apply(lambda x: x.split("_")[0])
+        label_df = label_df[label_df["original_id"].isin(valid_ids)].copy()
+        label_df = label_df.drop(columns=["original_id"])
+        label_df = label_df.sort_values(by="source")
+        label_df = label_df.reset_index(drop=True)
 
-    # show labels ---
-    print("labels:")
-    print(label_df.head())
-    print_line()
+        # show labels ---
+        print("labels:")
+        print(label_df.head())
+        print_line()
 
-    print(f"# of graphs in train: {len(train_ids)}")
-    print(f"# of graphs in valid: {len(valid_ids)}")
-    print_line()
+        print(f"# of graphs in train: {len(train_ids)}")
+        print(f"# of graphs in valid: {len(valid_ids)}")
+        print_line()
 
     if cfg.add_syn:
         syn_image_dir = f"{cfg.competition_dataset.syn_dir}/images"
@@ -357,7 +358,7 @@ def run_training(cfg):
         mga_valid_ds,
         batch_size=cfg.train_params.valid_bs,
         collate_fn=collate_fn,
-        shuffle=False,
+        shuffle=cfg.train_params.num_workers,
     )
 
     # ------- Wandb --------------------------------------------------------------------#
