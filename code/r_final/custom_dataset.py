@@ -10,6 +10,7 @@ from PIL import Image
 from tokenizers import AddedToken
 from torch.utils.data import Dataset
 from transformers import Pix2StructProcessor
+import io
 
 TOKEN_MAP = {
   "axes": ["[<axes>]", "[</axes>]"],

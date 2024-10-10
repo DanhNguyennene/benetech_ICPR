@@ -1,11 +1,10 @@
 import pdb
 from copy import deepcopy
 from dataclasses import dataclass
-
+import io
 import numpy as np
 import torch
 from transformers import DataCollatorWithPadding
-
 
 @dataclass
 class ICPRCollator(DataCollatorWithPadding):
