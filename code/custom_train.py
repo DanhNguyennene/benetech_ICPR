@@ -272,7 +272,36 @@ def run_training(cfg):
         print(f"# of graphs in train: {len(train_ids)}")
         print(f"# of graphs in valid: {len(valid_ids)}")
         print_line()
+    else:
+        # Case where all data is used for training
+        print_line()
+        print("Using all data for training...")
 
+        fold_dir = cfg.fold_metadata.fold_dir
+        fold_df = pd.read_parquet(os.path.join(fold_dir, cfg.fold_metadata.fold_path))
+
+        # Use all ids in the data for training
+        train_ids = fold_df["id"].unique().tolist()
+        valid_ids = []
+
+        print(f'# of images in all data for training: {len(train_ids)}')
+        print_line()
+
+        # labels ---
+        label_df = process_annotations(cfg)
+        label_df["original_id"] = label_df["id"].apply(lambda x: x.split("_")[0])
+        label_df = label_df.drop(columns=["original_id"])
+        label_df = label_df.sort_values(by="source")
+        label_df = label_df.reset_index(drop=True)
+
+        # show labels ---
+        print("labels:")
+        print(label_df.head())
+        print_line()
+
+        print(f"# of graphs in train: {len(train_ids)}")
+        print(f"# of graphs in valid: {len(valid_ids)}")
+        print_line()
     if cfg.add_syn:
         syn_image_dir = f"{cfg.competition_dataset.syn_dir}/images"
         syn_anno_dir = f"{cfg.competition_dataset.syn_dir}/annotations"
