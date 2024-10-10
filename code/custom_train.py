@@ -49,6 +49,8 @@ def run_sanity_check(cfg, batch, tokenizer, prefix="mga", num_examples=8):
     print(f"num_examples={num_examples}")
 
     for i in range(num_examples):
+        print(type(batch['decoder_input_ids'][i]), batch['decoder_input_ids'][i])
+        print(type(batch['images'][i]), batch['images'][i])
         image = batch['images'][i]
         text = tokenizer.decode(
             batch['decoder_input_ids'][i], skip_special_tokens=True)
