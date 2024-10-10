@@ -222,6 +222,28 @@ def execution_setup(cfg):
 
     return cfg
 
+def process_annotations_(cfg, dataset_type="train", num_jobs=8, limit=10000):
+    if dataset_type == "train":
+        parquet_path = cfg.custom.train_parquet_path  # Path to the train Parquet file
+    elif dataset_type == "validation":
+        parquet_path = cfg.custom.validation_parquet_path  # Path to the validation Parquet file
+    else:
+        raise ValueError(f"Unknown dataset_type: {dataset_type}")
+
+    # Load the Parquet file
+    parquet_df = pd.read_parquet(parquet_path)
+
+    # Limit to 10k rows for large datasets if needed
+    parquet_df = parquet_df.head(limit)
+
+    # Process annotations in parallel
+    annotations = Parallel(n_jobs=num_jobs, verbose=1)(
+        delayed(_process_json)(row) for _, row in parquet_df.iterrows()
+    )
+
+    # Create the labels dataframe
+    labels_df = pd.DataFrame(list(chain(*annotations)))
+    return labels_df
 
 @hydra.main(version_base=None, config_path="../conf/r_final", config_name="conf_r_final")
 def run_training(cfg):
@@ -257,13 +279,15 @@ def run_training(cfg):
     # # valid ids
     # valid_ids = fold_df[fold_df["kfold"].isin(cfg.valid_folds)]["id"].unique().tolist()
     #
-    # # labels ---
-    # label_df = process_annotations(cfg)
-    # label_df["original_id"] = label_df["id"].apply(lambda x: x.split("_")[0])
-    # label_df = label_df[label_df["original_id"].isin(valid_ids)].copy()
-    # label_df = label_df.drop(columns=["original_id"])
-    # label_df = label_df.sort_values(by="source")
-    # label_df = label_df.reset_index(drop=True)
+    # labels ---
+    train_labels_df = process_annotations_(cfg, dataset_type="train")
+    valid_labels_df = process_annotations_(cfg, dataset_type="validation")
+    label_df = pd.concat([train_df, valid_df], ignore_index=True)
+    label_df["original_id"] = label_df["id"].apply(lambda x: x.split("_")[0])
+    label_df = label_df[label_df["original_id"].isin(valid_ids)].copy()
+    label_df = label_df.drop(columns=["original_id"])
+    label_df = label_df.sort_values(by="source")
+    label_df = label_df.reset_index(drop=True)
     #
     # # show labels ---
     # print("labels:")
@@ -564,7 +588,7 @@ def run_training(cfg):
                     cfg,
                     model=model,
                     valid_dl=valid_dl,
-                    # label_df=label_df,
+                    label_df=label_df,
                     tokenizer=tokenizer,
                     token_map=TOKEN_MAP,
                 )
