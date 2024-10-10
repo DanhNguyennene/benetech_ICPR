@@ -41,30 +41,30 @@ BOS_TOKEN = TOKEN_MAP["bos_token"]
 # --- show batch ------------------------------------------------------------------#
 
 
-def run_sanity_check(cfg, batch, tokenizer, prefix="mga", num_examples=8):
-    print("generating sanity check results for a training batch...")
-    os.makedirs(os.path.join(cfg.outputs.model_dir, "examples"), exist_ok=True)
-
-    num_examples = min(num_examples, len(batch['images']))
-    print(f"num_examples={num_examples}")
-
-    for i in range(num_examples):
-        print(type(batch['decoder_input_ids'][i]), batch['decoder_input_ids'][i])
-        print(type(batch['images'][i]), batch['images'][i])
-        image = batch['images'][i]
-        text = tokenizer.decode(
-            batch['decoder_input_ids'][i], skip_special_tokens=True)
-
-        text = "\n".join(wrap(text, width=128))
-
-        # display image and its corresponding text label ---
-        plt.figure(figsize=(15, 15))
-        plt.imshow(image)
-        plt.xlabel(text)
-
-        image_path = os.path.join(cfg.outputs.model_dir, "examples", f"example_{prefix}_{i}.jpg")
-        plt.savefig(image_path)
-    print("done!")
+# def run_sanity_check(cfg, batch, tokenizer, prefix="mga", num_examples=8):
+#     print("generating sanity check results for a training batch...")
+#     os.makedirs(os.path.join(cfg.outputs.model_dir, "examples"), exist_ok=True)
+#
+#     num_examples = min(num_examples, len(batch['images']))
+#     print(f"num_examples={num_examples}")
+#
+#     for i in range(num_examples):
+#         print(type(batch['decoder_input_ids'][i]), batch['decoder_input_ids'][i])
+#         print(type(batch['images'][i]), batch['images'][i])
+#         image = batch['images'][i]
+#         text = tokenizer.decode(
+#             batch['decoder_input_ids'][i], skip_special_tokens=True)
+#
+#         text = "\n".join(wrap(text, width=128))
+#
+#         # display image and its corresponding text label ---
+#         plt.figure(figsize=(15, 15))
+#         plt.imshow(image)
+#         plt.xlabel(text)
+#
+#         image_path = os.path.join(cfg.outputs.model_dir, "examples", f"example_{prefix}_{i}.jpg")
+#         plt.savefig(image_path)
+#     print("done!")
 
 # -------- Evaluation -------------------------------------------------------------#
 
@@ -250,12 +250,12 @@ def run_training(cfg):
     for idx, b in enumerate(train_dl):
         if idx == 16:
             break
-        run_sanity_check(cfg, b, tokenizer, prefix=f"train_{idx}")
+        # run_sanity_check(cfg, b, tokenizer, prefix=f"train_{idx}")
 
     for idx, b in enumerate(valid_dl):
         if idx == 4:
             break
-        run_sanity_check(cfg, b, tokenizer, prefix=f"valid_{idx}")
+        # run_sanity_check(cfg, b, tokenizer, prefix=f"valid_{idx}")
 
     # ------- Config -------------------------------------------------------------------#
     print("config for the current run")
