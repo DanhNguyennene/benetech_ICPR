@@ -127,15 +127,36 @@ def _process_json(fp):
     return labels
 
 
-def process_annotations(cfg, num_jobs=8, limit=10000):
-    data_dir = cfg.competition_dataset.data_dir.rstrip("/")
-    anno_paths = glob.glob(f"{data_dir}/train/annotations/*.json")[:limit]  # Limit to 10k
+# def process_annotations(cfg, num_jobs=8, limit=10000):
+#     data_dir = cfg.competition_dataset.data_dir.rstrip("/")
+#     anno_paths = glob.glob(f"{data_dir}/train/annotations/*.json")[:limit]  # Limit to 10k
+#     annotations = Parallel(n_jobs=num_jobs, verbose=1)(
+#         delayed(_process_json)(file_path) for file_path in anno_paths
+#     )
+#     labels_df = pd.DataFrame(list(chain(*annotations)))
+#     return labels_df
+def process_annotations_(cfg, dataset_type="train", num_jobs=8, limit=10000):
+    if dataset_type == "train":
+        parquet_path = cfg.custom.train_parquet_path  # Path to the train Parquet file
+    elif dataset_type == "validation":
+        parquet_path = cfg.custom.validation_parquet_path  # Path to the validation Parquet file
+    else:
+        raise ValueError(f"Unknown dataset_type: {dataset_type}")
+
+    # Load the Parquet file
+    parquet_df = pd.read_parquet(parquet_path)
+
+    # Limit to 10k rows for large datasets if needed
+    parquet_df = parquet_df.head(limit)
+
+    # Process annotations in parallel
     annotations = Parallel(n_jobs=num_jobs, verbose=1)(
-        delayed(_process_json)(file_path) for file_path in anno_paths
+        delayed(_process_json)(row) for _, row in parquet_df.iterrows()
     )
+
+    # Create the labels dataframe
     labels_df = pd.DataFrame(list(chain(*annotations)))
     return labels_df
-
 
 # def process_annotations(cfg, num_jobs=8):
 #     anno_dir = cfg.competition_dataset.train.annotation_dir.rstrip("/")

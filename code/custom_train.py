@@ -191,150 +191,20 @@ def run_evaluation(cfg, model, valid_dl, label_df, tokenizer, token_map):
 
 # -------- Main Function ---------------------------------------------------------#
 
-def execution_setup(cfg):
-    print_line()
-    if cfg.use_random_seed:
-        seed = random.randint(401, 999)
-        cfg.seed = seed
-
-    print(f"setting seed: {cfg.seed}")
-    seed_everything(cfg.seed)
-
-    if cfg.all_data:
-        print("running training with all data...")
-        fold = 0
-        cfg.train_folds = [i for i in range(cfg.fold_metadata.n_folds)]
-        cfg.valid_folds = [fold]
-        cfg.outputs.model_dir = os.path.join(
-            cfg.outputs.model_dir, f"all_data_training/seed_{cfg.seed}"
-        )
-    else:
-        fold = cfg.fold
-        cfg.train_folds = [i for i in range(cfg.fold_metadata.n_folds) if i != fold]
-        cfg.valid_folds = [fold]
-
-    cfg.train_folds.append(99)  # to include synthetic data
-    print(f"train folds: {cfg.train_folds}")
-    print(f"valid folds: {cfg.valid_folds}")
-
-    # folder ---
-    os.makedirs(cfg.outputs.model_dir, exist_ok=True)
-
-    return cfg
 
 
 @hydra.main(version_base=None, config_path="../conf/r_final", config_name="conf_r_final")
 def run_training(cfg):
-    # cfg = execution_setup(cfg)
-    # fold = cfg.fold
-    #
-    # # ------- load data -----------------------------------------------------------------#
-    # print_line()
-    # fold_dir = cfg.fold_metadata.fold_dir
-    # fold_df = pd.read_parquet(os.path.join(fold_dir, cfg.fold_metadata.fold_path))["ground_truth"]
-    #
-    # # extracted multiplier ---
-    # extracted_ids = fold_df[fold_df["kfold"] != 99]["id"].unique().tolist()
-    # extracted_ids = [gid for gid in extracted_ids if gid not in EXCLUDE_IDS]
-    #
-    # train_ids = fold_df[fold_df["kfold"].isin(cfg.train_folds)]["id"].unique().tolist()
-    # print(f'# images in original train: {len(train_ids)}')
-    #
-    # # ---- repeat original train ids ----#
-    # train_ids = train_ids * cfg.original_multiplier
-    # print(f'# images in original train after multiplier: {len(train_ids)}')
-    #
-    # # ----------------------------------#
-    # print("full-fit: using all data for training...")
-    # extracted_train_ids = deepcopy(extracted_ids)  # list(set(train_ids).intersection(set(extracted_ids)))
-    # print(f"# extracted train ids: {len(extracted_train_ids)}")
-    # extracted_train_ids = extracted_train_ids * max(cfg.extracted_multiplier - 1, 1)
-    # if len(extracted_train_ids) > 0:
-    #     train_ids.extend(extracted_train_ids)
-    #
-    # print(f'# images in original train after extracted multiplier: {len(train_ids)}')
-    #
-    # # valid ids
-    # valid_ids = fold_df[fold_df["kfold"].isin(cfg.valid_folds)]["id"].unique().tolist()
-    #
-    # # labels ---
-    # label_df = process_annotations(cfg)
-    # label_df["original_id"] = label_df["id"].apply(lambda x: x.split("_")[0])
-    # label_df = label_df[label_df["original_id"].isin(valid_ids)].copy()
-    # label_df = label_df.drop(columns=["original_id"])
-    # label_df = label_df.sort_values(by="source")
-    # label_df = label_df.reset_index(drop=True)
-    #
-    # # show labels ---
-    # print("labels:")
-    # print(label_df.head())
-    # print_line()
-    #
-    # print(f"# of graphs in train: {len(train_ids)}")
-    # print(f"# of graphs in valid: {len(valid_ids)}")
-    # print_line()
-    #
-    # if cfg.add_syn:
-    #     syn_image_dir = f"{cfg.competition_dataset.syn_dir}/images"
-    #     syn_anno_dir = f"{cfg.competition_dataset.syn_dir}/annotations"
-    #
-    #     print(f"adding  data from {syn_image_dir}")
-    #     syn_ids = glob.glob(f"{syn_image_dir}/*.jpg")
-    #     syn_ids_anno = glob.glob(f"{syn_anno_dir}/*.json")
-    #
-    #     syn_ids = [fid.split("/")[-1].split(".jpg")[0] for fid in syn_ids]
-    #     syn_ids = [gid.split("_v0")[0] for gid in syn_ids]
-    #
-    #     syn_ids_anno = [fid.split("/")[-1].split(".json")[0] for fid in syn_ids_anno]
-    #
-    #     print(f"# Synthetic before filter: {len(syn_ids)}")
-    #     syn_ids = list(set(syn_ids).intersection(set(syn_ids_anno)))
-    #     print(f"# Synthetic after filter: {len(syn_ids)}")
-    #
-    #     syn_ids = [gid for gid in syn_ids if gid not in EXCLUDE_IDS]
-    #     print(f"# SYN ids after exclusion: {len(syn_ids)}")
-    #
-    #     train_ids.extend(syn_ids)
-    #     print(f"# of graphs in train: {len(train_ids)}")
-    #     print_line()
-    #
-    # if cfg.add_pl:
-    #     pl_image_dir = f"{cfg.competition_dataset.pl_dir}/images"
-    #     pl_anno_dir = f"{cfg.competition_dataset.pl_dir}/annotations"
-    #
-    #     print(f"adding  data from {pl_image_dir}")
-    #     pl_ids = glob.glob(f"{pl_image_dir}/*.jpg")
-    #     pl_ids = [fid.split("/")[-1].split(".jpg")[0] for fid in pl_ids]
-    #
-    #     pl_ids_anno = glob.glob(f"{pl_anno_dir}/*.json")
-    #     pl_ids_anno = [fid.split("/")[-1].split(".json")[0] for fid in pl_ids_anno]
-    #
-    #     pl_ids = list(set(pl_ids).intersection(set(pl_ids_anno)))
-    #
-    #     print(f"# PL ids before exclusion: {len(pl_ids)}")
-    #     pl_ids = [gid for gid in pl_ids if gid not in EXCLUDE_IDS]
-    #     print(f"# PL ids after exclusion: {len(pl_ids)}")
-    #
-    #     print(f"# PL before multiplier: {len(pl_ids)}")
-    #     pl_ids = pl_ids*cfg.pl_multiplier
-    #     print(f"# PL after multiplier: {len(pl_ids)}")
-    #
-    #     train_ids.extend(pl_ids)
-    #     print(f"# of graphs in train: {len(pl_ids)}")
-    #     print_line()
-
     # ------- Datasets ------------------------------------------------------------------#
     # The datasets for LECR Dual Encoder
     # -----------------------------------------------------------------------------------#
 
-    train_transforms = None
-    if cfg.use_augmentations:
-        print_line()
-        print("using augmentations...")
-        train_transforms = create_train_transforms()
-        print_line()
-
-
+    label_df = process_annotations(cfg)
+    label_df["original_id"] = label_df["id"].apply(lambda x: x.split("_")[0])
+    label_df = label_df[label_df["original_id"].isin(valid_ids)].copy()
+    label_df = label_df.drop(columns=["original_id"])
+    label_df = label_df.sort_values(by="source")
+    label_df = label_df.reset_index(drop=True)
 
     train_parquet_path = cfg.custom.train_parquet_path
     train_transforms = create_train_transforms() if cfg.use_augmentations else None
@@ -359,7 +229,7 @@ def run_training(cfg):
         batch_size=cfg.train_params.train_bs,
         collate_fn=collate_fn,
         shuffle=True,
-        num_workers=2,
+        num_workers=cfg.num_workers,
     )
 
     valid_dl = DataLoader(
@@ -564,7 +434,7 @@ def run_training(cfg):
                     cfg,
                     model=model,
                     valid_dl=valid_dl,
-                    # label_df=label_df,
+                    label_df=label_df,
                     tokenizer=tokenizer,
                     token_map=TOKEN_MAP,
                 )
