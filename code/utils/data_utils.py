@@ -194,7 +194,6 @@ def process_annotations(cfg, dataset_type="train", num_jobs=8, limit=10000):
     parquet_df = pd.read_parquet(parquet_path)
 
     # Limit to 10k rows for large datasets if needed
-    parquet_df = parquet_df["ground_truth"]
 
     # Process annotations in parallel
     # annotations = Parallel(n_jobs=num_jobs, verbose=1)(

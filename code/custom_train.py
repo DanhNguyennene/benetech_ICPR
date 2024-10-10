@@ -199,7 +199,7 @@ def run_training(cfg):
     # The datasets for LECR Dual Encoder
     # -----------------------------------------------------------------------------------#
 
-    label_df = process_annotations(cfg)
+    label_df = process_annotations(cfg)["ground_truth"]
     label_df["original_id"] = label_df["id"].apply(lambda x: x.split("_")[0])
     label_df = label_df[label_df["original_id"].isin(valid_ids)].copy()
     label_df = label_df.drop(columns=["original_id"])
