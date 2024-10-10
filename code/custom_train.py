@@ -227,7 +227,7 @@ def run_training(cfg):
     fold = cfg.fold
 
     # ------- load data -----------------------------------------------------------------#
-    if cfg.all_data:
+    if not cfg.all_data:
         print_line()
         fold_dir = cfg.fold_metadata.fold_dir
         fold_df = pd.read_parquet(os.path.join(fold_dir, cfg.fold_metadata.fold_path))
