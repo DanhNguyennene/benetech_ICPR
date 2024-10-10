@@ -227,7 +227,7 @@ def run_training(cfg):
         batch_size=cfg.train_params.train_bs,
         collate_fn=collate_fn,
         shuffle=True,
-        num_workers=cfg.num_workers,
+        num_workers=cfg.train_params.num_workers,
     )
 
     valid_dl = DataLoader(
