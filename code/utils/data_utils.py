@@ -197,9 +197,9 @@ def process_annotations(cfg, dataset_type="train", num_jobs=8, limit=10000):
     parquet_df = parquet_df.head(limit)
 
     # Process annotations in parallel
-    annotations = Parallel(n_jobs=num_jobs, verbose=1)(
-        delayed(_process_json)(row) for _, row in parquet_df.iterrows()
-    )
+    # annotations = Parallel(n_jobs=num_jobs, verbose=1)(
+        # delayed(_process_json)(row) for _, row in parquet_df.iterrows()
+    # )
 
     # Create the labels dataframe
     labels_df = pd.DataFrame(list(chain(*annotations)))
