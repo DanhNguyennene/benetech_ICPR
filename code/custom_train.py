@@ -145,15 +145,13 @@ def extraction(content: str, bos: str, eos: str) -> str:
 
 
 def detect_nested_tags(content: str, token_map: Dict[str, List[str]]) -> List[str]:
-    try:
-        nested_tags = []
-        for token, tags in token_map.items():
-            start_tag = tags[0].replace('<', r'\<').replace('>', r'\>')
-            if re.search(start_tag, content):
-                nested_tags.append(token)
-        return nested_tags
-    except Exception as e:
-        return []
+    nested_tags = []
+    for token, tags in token_map.items():
+        start_tag = tags[0].replace('<', r'\<').replace('>', r'\>')
+        if re.search(start_tag, content):
+            nested_tags.append(token)
+    return nested_tags
+    
 
 def build_nested_dict(
     pred_str: str,

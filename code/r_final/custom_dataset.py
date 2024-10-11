@@ -46,21 +46,51 @@ TOKEN_MAP = {
   "bos_token" : ["</s>"]
 }
 
-def tokenize_dict(data: dict, token_mapping: dict):
+def tokenize_dict_with_count(data: dict):
+    """
+    Convert a nested JSON object into a token sequence and count tokens dynamically using JSON tags.
+    
+    Args:
+    - data (dict): The input dictionary (e.g., JSON object).
+    
+    Returns:
+    - token_count (dict): A dictionary containing the count of each generated token.
+    - token_sequence (str): The tokenized sequence as a string.
+    """
+    token_count = {}
+
     def recursive_tokenizer(d):
+        nonlocal token_count
         if isinstance(d, dict):
             result = ""
             for key, value in d.items():
-                start_token, end_token = token_mapping.get(key, (f"<{key}>", f"</{key}>"))
+                # Dynamically create start and end tokens based on the key
+                start_token = f"<{key}>"
+                end_token = f"</{key}>"
+
+                # Update token count
+                token_count[start_token] = token_count.get(start_token, 0) + 1
+                token_count[end_token] = token_count.get(end_token, 0) + 1
+
+                # Recursively process the value
                 value_string = recursive_tokenizer(value)
-                
                 result += f"{start_token}{value_string}{end_token}"
             return result
         elif isinstance(d, list):
-            return ''.join(recursive_tokenizer(item) for item in d)
+            # Process each item in the list
+            
+            if ('x' in d[0] and 'y' in d[0]) or 'text' in d[0]:
+                return ''.join(recursive_tokenizer(item) for item in d)
+            return ' '.join(recursive_tokenizer(item) for item in d)
         else:
+            # For primitive values, simply return the string representation
+            if type(d) == float:
+                return str(round(d, 2))
             return str(d)
-    return recursive_tokenizer(data)
+
+    # Tokenize the entire dictionary and return both token counts and the tokenized sequence
+    token_sequence = recursive_tokenizer(data)
+    return token_count, token_sequence
 
 def get_processor(cfg):
     """
