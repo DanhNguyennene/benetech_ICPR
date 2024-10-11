@@ -46,7 +46,7 @@ TOKEN_MAP = {
   "bos_token" : ["</s>"]
 }
 
-def tokenize_dict_with_count(data: dict):
+def tokenize_dict(data: dict):
     """
     Convert a nested JSON object into a token sequence and count tokens dynamically using JSON tags.
     
