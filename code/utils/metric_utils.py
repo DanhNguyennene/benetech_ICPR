@@ -4,7 +4,7 @@ import json
 import os
 import random
 from collections import defaultdict
-from typing import Any, Dict, List, Tuple, Un
+from typing import Any, Dict, List, Tuple, Union
 
 import torch
 import zss
