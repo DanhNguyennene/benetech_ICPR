@@ -431,7 +431,7 @@ def run_training(cfg):
     num_line = 0
     num_scatter = 0
 
-    for epoch in range(num_epochs):
+    for epoch in tqdm(range(num_epochs), desc='Processing epoch...'):
         epoch_progress = 0
         # close and reset progress bar
         if epoch != 0:
@@ -443,7 +443,7 @@ def run_training(cfg):
         loss_meter_cls = AverageMeter()
 
         model.train()
-        for step, batch in enumerate(train_dl):
+        for step, batch in tqdm(enumerate(train_dl), desc='Processing step...'):
             num_vbar += len([ct for ct in batch['chart_type'] if ct == 'vertical_bar'])
             num_hbar += len([ct for ct in batch['chart_type'] if ct == 'horizontal_bar'])
             num_line += len([ct for ct in batch['chart_type'] if ct == 'line'])
