@@ -212,6 +212,7 @@ def run_evaluation(
     label_dict = []
     progress_bar = tqdm(range(len(valid_dl)), desc='Running evaluation...')
     for batch in valid_dl:
+        print(batch)
         with torch.no_grad():
             batch_ids = batch["id"]
             
@@ -399,10 +400,14 @@ def run_training(cfg):
     print_line()
 
     # ------- training setup --------------------------------------------------------------#
-    best_lb = -1.
+    best_f1 = 0
+    best_accuracy = 0
     save_trigger = cfg.train_params.save_trigger
-
     patience_tracker = 0
+
+    min_delta = 0.001
+
+
     current_iteration = 0
 
     # ------- EMA -----------------------------------------------------------------------#
@@ -458,7 +463,7 @@ def run_training(cfg):
                 loss_meter.update(loss.item())
                 loss_meter_main.update(loss_dict["loss_main"].item())
                 loss_meter_cls.update(loss_dict["loss_cls"].item())
-                print_and_log(f"Epoch {epoch+1}, Step {step+1}: Loss: {loss.item():.4f}, LR: {get_lr(optimizer):.6f}", logging.DEBUG)
+
 
                 # ema ---
                 if cfg.train_params.use_ema:
@@ -522,7 +527,20 @@ def run_training(cfg):
                 et = as_minutes(time.time()-start_time)
                 print(f">>> Epoch {epoch+1} | Step {step} | Total Step {current_iteration} | Time: {et}")
                 
-                # is_best = False
+                is_best = False
+
+                f1_improved = (f1 - best_f1) > min_delta
+                accuracy_improved = (acc - best_accuracy) > min_delta
+
+                if f1_improved or accuracy_improved:
+                    # If there is an improvement, reset patience counter and save the best metrics
+                    best_f1 = max(best_f1, f1)
+                    best_accuracy = max(best_accuracy, acc)
+                    patience_tracker = 0
+                else:
+                    # If no improvement, increment the patience counter
+                    patience_tracker += 1
+
                 # if lb >= best_lb:
                 #     best_lb = lb
                 #     is_best = True
@@ -597,6 +615,11 @@ def run_training(cfg):
                     ema.restore()
 
                 print_line()
+
+                if patience_tracker >= cfg_dict['train_params']['patience']:
+                    print("Early stopping triggered. Stopping training...")
+                    model.eval()
+                    return
 
                 # early stopping ----
                 # if patience_tracker >= cfg_dict['train_params']['patience']:
