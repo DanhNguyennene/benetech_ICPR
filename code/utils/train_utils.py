@@ -101,6 +101,7 @@ def save_checkpoint(config, state, is_best=None):
 
     filename = f'{config["outputs"]["model_dir"]}/{name}.pth.tar'
     torch.save(state, filename, _use_new_zipfile_serialization=False)
+    print(f"Model saved!! in {filename}")
 
     if is_best:
         shutil.copyfile(filename, f'{config["outputs"]["model_dir"]}/{name}_best.pth.tar')

@@ -64,7 +64,6 @@ def tokenize_dict_with_count(data: dict):
         if isinstance(d, dict):
             result = ""
             for key, value in d.items():
-                # Dynamically create start and end tokens based on the key
                 start_token = f"<{key}>"
                 end_token = f"</{key}>"
 
@@ -76,14 +75,11 @@ def tokenize_dict_with_count(data: dict):
                 value_string = recursive_tokenizer(value)
                 result += f"{start_token}{value_string}{end_token}"
             return result
-        elif isinstance(d, list):
-            # Process each item in the list
-            
+        elif isinstance(d, list):            
             if ('x' in d[0] and 'y' in d[0]) or 'text' in d[0]:
                 return ''.join(recursive_tokenizer(item) for item in d)
             return ' '.join(recursive_tokenizer(item) for item in d)
         else:
-            # For primitive values, simply return the string representation
             if type(d) == float:
                 return str(round(d, 2))
             return str(d)
