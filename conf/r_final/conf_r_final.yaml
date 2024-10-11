@@ -66,6 +66,9 @@ optimizer:
 outputs:
   model_dir: ../models/r_final
 
+images:
+  rsz_height: 1024
+  rsz_width: 1024
 
 fold_metadata:
   n_folds: 2

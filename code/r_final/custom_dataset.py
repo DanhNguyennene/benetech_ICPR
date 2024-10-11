@@ -79,13 +79,14 @@ def get_processor(cfg):
     return processor
 
 class ICPRDataset(Dataset):
-    def __init__(self, cfg, parquet_path, transform=None):
+    def __init__(self, cfg, parquet_path):
         self.cfg = cfg
-        self.transform = transform
-        self.parquet_df = pd.read_parquet(parquet_path)  # Load the specified Parquet file (train or validation)
-        self.graph_ids = self.parquet_df.index.tolist()  # Assuming index acts as unique IDs for rows
+        self.resize_height = cfg.images.rsz_height
+        self.resize_width = cfg.images.rsz_width
+        self.transform = create_train_transforms(self.resize_height, self.resize_width)
+        self.parquet_df = pd.read_parquet(parquet_path)  
+        self.graph_ids = self.parquet_df.index.tolist()  
         
-        # Load processor for tokenization
         self.load_processor()
 
     def load_processor(self):
@@ -93,19 +94,18 @@ class ICPRDataset(Dataset):
 
     def load_image(self, graph_id):
         row = self.parquet_df.loc[graph_id]
-        image_data = row["image"]["bytes"]  # Assuming 'image' column contains image byte data
-        image = Image.open(io.BytesIO(image_data)).convert('RGB')  # Convert byte data to PIL Image
+        image_data = row["image"]["bytes"]  
+        image = Image.open(io.BytesIO(image_data)).convert('RGB')  #
         return image
 
     def build_output(self, graph_id):
         row = self.parquet_df.loc[graph_id]
         
         try:
-            # Load 'ground_truth' as JSON (assuming it is a JSON string in the Parquet file)
             ground_truth_str = row["ground_truth"]
-            ground_truth = json.loads(ground_truth_str)  # Convert JSON string to dictionary
+            ground_truth = json.loads(ground_truth_str)  
             
-            chart_type = ground_truth[0].get('chart_type', 'unknown')  # Safely retrieve chart-type
+            chart_type = ground_truth[0].get('chart_type', 'unknown')  
 
             # Tokenizing ground truth annotations
             text = tokenize_dict(ground_truth, TOKEN_MAP)  # Assuming tokenize_dict and TOKEN_MAP are defined
@@ -167,46 +167,15 @@ class ICPRDataset(Dataset):
 
         return r
 
-def create_train_transforms():
+def create_train_transforms(resize_height=None, resize_width=None):
     """
     Returns transformations.
 
     Returns:
         albumentations transforms: transforms.
     """
-
-    transforms = A.Compose(
-        [
-            A.OneOf(
-                [
-                    A.RandomToneCurve(scale=0.3),
-                    A.RandomBrightnessContrast(
-                        brightness_limit=(-0.1, 0.2),
-                        contrast_limit=(-0.4, 0.5),
-                        brightness_by_max=True,
-                    ),
-                    A.HueSaturationValue(
-                        hue_shift_limit=(-20, 20),
-                        sat_shift_limit=(-30, 30),
-                        val_shift_limit=(-20, 20)
-                    )
-                ],
-                p=0.5,
-            ),
-
-            A.OneOf(
-                [
-                    A.MotionBlur(blur_limit=3),
-                    A.MedianBlur(blur_limit=3),
-                    A.GaussianBlur(blur_limit=3),
-                    A.GaussNoise(var_limit=(3.0, 9.0)),
-                ],
-                p=0.5,
-            ),
-
-            A.Downscale(always_apply=False, p=0.1, scale_min=0.90, scale_max=0.99),
-        ],
-
-        p=0.5,
-    )
+    transform_lists = []
+    if resize_height is not None and resize_width is not None:
+        transform_lists.append(A.Resize(height=resize_height, width=resize_width))
+    transforms = A.Compose(transform_lists, p=0.5)
     return transforms

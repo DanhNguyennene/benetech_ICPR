@@ -9,6 +9,7 @@ from textwrap import wrap
 import hydra
 import matplotlib.pyplot as plt
 import pandas as pd
+from typing import List, Dict, Tuple, Any
 import torch
 import wandb
 from accelerate import Accelerator
@@ -16,6 +17,40 @@ from omegaconf import OmegaConf
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
 from transformers import GenerationConfig, get_cosine_schedule_with_warmup
+
+TOKEN_MAP = {
+  "axes": ["[<axes>]", "[</axes>]"],
+  "chart-type": ["[<chart-type>]", "[</chart-type>]"],
+  "bars": ["[<bars>]", "[</bars>]"],
+  "data-series": ["[<data-series>]", "[</data-series>]"],
+  "plot-bb": ["[<plot-bb>]", "[</plot-bb>]"],
+  "source": ["[<source>]", "[</source>]"],
+  "text": ["[<text>]", "[</text>]"],
+  "visual-elements": ["[<visual-elements>]", "[</visual-elements>]"],
+  "x-axis": ["[<x-axis>]", "[</x-axis>]"],
+  "y-axis": ["[<y-axis>]", "[</y-axis>]"],
+  "tick-type": ["[<tick-type>]", "[</tick-type>]"],
+  "ticks": ["[<ticks>]", "[</ticks>]"],
+  "values-type": ["[<values-type>]", "[</values-type>]"],
+  "tick_pt": ["[<tick_pt>]", "[</tick_pt>]"],
+  "x": ["[<x>]", "[</x>]"],
+  "y": ["[<y>]", "[</y>]"],
+  "height": ["[<height>]", "[</height>]"],
+  "width": ["[<width>]", "[</width>]"],
+  "x0": ["[<x0>]", "[</x0>]"],
+  "x1": ["[<x1>]", "[</x1>]"],
+  "x2": ["[<x2>]", "[</x2>]"],
+  "x3": ["[<x3>]", "[</x3>]"],
+  "y0": ["[<y0>]", "[</y0>]"],
+  "y1": ["[<y1>]", "[</y1>]"],
+  "y2": ["[<y2>]", "[</y2>]"],
+  "y3": ["[<y3>]", "[</y3>]"],
+  "id": ["[<id>]", "[</id>]"],
+  "polygon": ["[<polygon>]", "[</polygon>]"],
+  "role": ["[<role>]", "[</role>]"],
+  "bos_token" : ["[</s>]"]
+}
+
 
 try:
     from r_final.custom_dataloader import ICPRCollator
@@ -38,33 +73,7 @@ pd.options.display.max_colwidth = 1000
 BOS_TOKEN = TOKEN_MAP["bos_token"]
 
 
-# --- show batch ------------------------------------------------------------------#
 
-
-# def run_sanity_check(cfg, batch, tokenizer, prefix="mga", num_examples=8):
-#     print("generating sanity check results for a training batch...")
-#     os.makedirs(os.path.join(cfg.outputs.model_dir, "examples"), exist_ok=True)
-#
-#     num_examples = min(num_examples, len(batch['images']))
-#     print(f"num_examples={num_examples}")
-#
-#     for i in range(num_examples):
-#         print(type(batch['decoder_input_ids'][i]), batch['decoder_input_ids'][i])
-#         print(type(batch['images'][i]), batch['images'][i])
-#         image = batch['images'][i]
-#         text = tokenizer.decode(
-#             batch['decoder_input_ids'][i], skip_special_tokens=True)
-#
-#         text = "\n".join(wrap(text, width=128))
-#
-#         # display image and its corresponding text label ---
-#         plt.figure(figsize=(15, 15))
-#         plt.imshow(image)
-#         plt.xlabel(text)
-#
-#         image_path = os.path.join(cfg.outputs.model_dir, "examples", f"example_{prefix}_{i}.jpg")
-#         plt.savefig(image_path)
-#     print("done!")
 
 # -------- Evaluation -------------------------------------------------------------#
 
@@ -107,6 +116,10 @@ BOS_TOKEN = TOKEN_MAP["bos_token"]
 #         y = []
 
 #     return chart_type, x, y
+
+def post_processing(pred_str: str, token_map: Dict[str, List[str]], )
+
+
 
 def run_evaluation(cfg, model, valid_dl, label_df, tokenizer, token_map):
 
