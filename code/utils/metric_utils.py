@@ -9,7 +9,6 @@ from typing import Any, Dict, List, Tuple, Union
 import torch
 import zss
 from nltk import edit_distance
-from zss import Nodeion
 
 import numpy as np
 import pandas as pd
