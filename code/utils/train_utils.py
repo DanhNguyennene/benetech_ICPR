@@ -52,6 +52,17 @@ def init_wandb(config):
 
 
 def print_gpu_utilization():
+    """
+    Prints the current GPU memory utilization.
+
+    This function initializes NVML (NVIDIA Management Library) to interact with the GPU.
+    It retrieves the handle for the GPU at index 0 and fetches memory usage details.
+    Finally, it prints the amount of memory currently occupied on the GPU in megabytes (MB).
+    
+    Requires:
+        - NVIDIA drivers and NVML library installed.
+        - pynvml Python package.
+    """
     nvmlInit()
     handle = nvmlDeviceGetHandleByIndex(0)
     info = nvmlDeviceGetMemoryInfo(handle)
@@ -83,9 +94,10 @@ class AverageMeter(object):
         self.avg = self.sum / self.count
 
 
-def save_checkpoint(config, state, is_best):
+def save_checkpoint(config, state, is_best=None):
     os.makedirs(config["outputs"]["model_dir"], exist_ok=True)
-    name = f"mga_model_fold_{config['fold']}"
+    # name = f"mga_model_fold_{config['fold']}"
+    name = f"saved_model"
 
     filename = f'{config["outputs"]["model_dir"]}/{name}.pth.tar'
     torch.save(state, filename, _use_new_zipfile_serialization=False)
