@@ -178,5 +178,6 @@ def create_train_transforms(resize_height=None, resize_width=None):
     transform_lists = []
     if resize_height is not None and resize_width is not None:
         transform_lists.append(A.Resize(height=resize_height, width=resize_width))
-    transforms = A.Compose(transform_lists, p=0.5)
+    # transforms = A.Compose(transform_lists, p=0.5)
+    transforms = A.Compose(transform_lists)
     return transforms
