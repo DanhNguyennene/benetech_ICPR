@@ -215,7 +215,7 @@ def run_evaluation(
 
 
     for batch in valid_dl:
-        print(batch)
+        
         with torch.no_grad():
             batch_ids = batch["id"]
             
