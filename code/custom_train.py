@@ -443,7 +443,7 @@ def run_training(cfg):
         loss_meter_cls = AverageMeter()
 
         model.train()
-        for step, batch in tqdm(enumerate(train_dl), desc='Processing step...'):
+        for step, batch in enumerate(train_dl):
             num_vbar += len([ct for ct in batch['chart_type'] if ct == 'vertical_bar'])
             num_hbar += len([ct for ct in batch['chart_type'] if ct == 'horizontal_bar'])
             num_line += len([ct for ct in batch['chart_type'] if ct == 'line'])
