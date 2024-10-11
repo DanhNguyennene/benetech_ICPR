@@ -212,7 +212,6 @@ def run_evaluation(
     all_texts = []
     label_dict = []
     progress_bar = tqdm(range(len(valid_dl)), desc='Running evaluation...')
-    print_and_log("Starting evaluation...", logging.INFO)
 
 
     for batch in valid_dl:
@@ -226,16 +225,13 @@ def run_evaluation(
                 generation_config=generation_config,
             )
             generated_texts = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)
-            print_and_log(f"Model prediction: {generated_texts}", logging.INFO)
 
 
             all_ids.extend(batch_ids)
             all_texts.extend(generated_texts)
             label_dict.extend(batch['texts'])
-            print_and_log(f"Ground truth: {batch['texts']}", logging.INFO)
         progress_bar.update(1)
     progress_bar.close()
-    print_and_log("Finished generating texts.", logging.INFO) 
 
     label_dicts = [
         post_processing(
