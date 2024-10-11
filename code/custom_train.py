@@ -275,17 +275,13 @@ def run_training(cfg):
     
     print_and_log("Loading datasets...", logging.INFO)
     train_parquet_path = cfg.custom.train_parquet_path
-    train_transforms = create_train_transforms() 
-    mga_train_ds = ICPRDataset(cfg, train_parquet_path, transform=train_transforms)
+    mga_train_ds = ICPRDataset(cfg, train_parquet_path)
     valid_parquet_path = cfg.custom.valid_parquet_path
-    valid_transforms = create_train_transforms() 
-    mga_valid_ds = ICPRDataset(cfg, valid_parquet_path,transform = valid_transforms)
+    mga_valid_ds = ICPRDataset(cfg, valid_parquet_path)
     print_and_log(f"Train dataset size: {len(mga_train_ds)}, Valid dataset size: {len(mga_valid_ds)}", logging.INFO)
 
 
 
-
-    
 
     
 

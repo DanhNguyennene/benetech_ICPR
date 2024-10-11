@@ -4,13 +4,12 @@ import json
 import os
 import random
 from collections import defaultdict
-from typing import Any, Dict, List, Tuple, Un
+from typing import Any, Dict, List, Tuple, Union
 
 import torch
 import zss
 from nltk import edit_distance
-from zss import Nodeion
-
+from zss import Node
 import numpy as np
 import pandas as pd
 from rapidfuzz.distance.Levenshtein import distance as levenshtein
