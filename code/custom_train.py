@@ -298,7 +298,6 @@ def run_train_ddp(rank, world_size, cfg):
     global logger
     logger = setup_logging()
     print_and_log("Starting training process", logging.INFO)
-    init_process_group()
     
     print_and_log("Loading datasets...", logging.INFO)
     train_parquet_path = cfg.custom.train_parquet_path
