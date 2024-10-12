@@ -309,7 +309,6 @@ def run_train_ddp(rank, world_size, cfg):
 
 
 
-    
 
     
     tokenizer = mga_train_ds.processor.tokenizer
@@ -322,13 +321,17 @@ def run_train_ddp(rank, world_size, cfg):
 
     # ------- data collators --------------------------------------------------------------#
     collate_fn = ICPRCollator(tokenizer=tokenizer)
+        
+    train_sampler = torch.utils.data.distributed.DistributedSampler(
+        train_dataset, num_replicas=world_size, rank=rank
+    )
 
     train_dl = DataLoader(
         mga_train_ds,
         batch_size=cfg.train_params.train_bs,
         collate_fn=collate_fn,
         num_workers=cfg.train_params.num_workers,
-        sampler=DistributedSampler(mga_train_ds,num_replicas=world_size, rank=rank),
+        sampler=train_sampler,
     )
 
     valid_dl = DataLoader(
