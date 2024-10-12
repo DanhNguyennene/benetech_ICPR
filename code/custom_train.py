@@ -21,12 +21,8 @@ from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
 from transformers import GenerationConfig, get_cosine_schedule_with_warmup
 from torch.nn import DataParallel
-from torch.nn.parallel import DistributedDataParallel as DDP
 import torch.distributed as dist
 from accelerate import Accelerator
-from torch.utils.data.distributed import DistributedSampler
-def init_process_group():
-    dist.init_process_group(backend='nccl', init_method='env://')
 
 TOKEN_MAP = {
   "axes": ["<axes>", "</axes>"],
@@ -285,7 +281,6 @@ def run_training(cfg):
     logger = setup_logging()
     print_and_log("Starting training process", logging.INFO)
 
-    init_process_group()  # Initialize process group for DDP
     
     print_and_log("Loading datasets...", logging.INFO)
     train_parquet_path = cfg.custom.train_parquet_path
@@ -317,7 +312,6 @@ def run_training(cfg):
         collate_fn=collate_fn,
         shuffle=True,
         num_workers=cfg.train_params.num_workers,
-        sampler=DistributedSampler(mga_train_ds),
     )
 
     valid_dl = DataLoader(
@@ -326,7 +320,6 @@ def run_training(cfg):
         collate_fn=collate_fn,
         shuffle=False,
         num_workers=cfg.train_params.num_workers,
-        sampler=DistributedSampler(mga_valid_ds),
     )
 
     # ------- Wandb --------------------------------------------------------------------#
@@ -357,14 +350,15 @@ def run_training(cfg):
     init_process_group()
 
     # ------- Model --------------------------------------------------------------------#
-    print_line()
-    print_and_log("Creating ICPR model...", logging.INFO)
-    model = ICPRModel(cfg)
-    print_and_log(f"Model architecture:\n{model}", logging.DEBUG)
+    # Model creation and move to GPU
+    model = ICPRModel(cfg)  # Assuming your model is called ICPRModel
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    model = model.to(device)  # Move the model to the GPU
 
-    model = DDP(model, device_ids=[device], output_device=device)
-
-    model = model.to(device)
+    # Use DataParallel if more than one GPU is available
+    if torch.cuda.device_count() > 1:
+        print(f"Using {torch.cuda.device_count()} GPUs for training.")
+        model = DataParallel(model)  # Wrap model with DataParallel
     # model = model.to("cuda:0")
     # model = torch.compile(model)  # pytorch 2.0
 
@@ -610,8 +604,7 @@ def run_training(cfg):
                 }
 
                 # if best_lb > save_trigger:
-                if dist.get_rank() == 0:  # Only the primary process saves the model
-                    save_checkpoint(cfg_dict, model_state)
+                save_checkpoint(cfg_dict, model_state)
 
                 # logging ----
                 # if cfg.use_wandb:
