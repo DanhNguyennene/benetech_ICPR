@@ -97,7 +97,7 @@ def run_evaluation(
 # Main function to load the model, process the parquet file, and run the evaluation
 if __name__ == "__main__":
     # Load the configuration file
-    cfg = OmegaConf.load("/content/conf_r_final.yaml")
+    cfg = OmegaConf.load("../../conf/r_final/conf_r_final.yaml")
 
     # Set the path to the parquet file
     parquet_file = cfg.custom.valid_parquet_path
