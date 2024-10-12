@@ -347,7 +347,6 @@ def run_training(cfg):
     cfg_dict = OmegaConf.to_container(cfg, resolve=True)
     print(json.dumps(cfg_dict, indent=4))
 
-    init_process_group()
 
     # ------- Model --------------------------------------------------------------------#
     # Model creation and move to GPU
