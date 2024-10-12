@@ -295,6 +295,8 @@ def run_train_ddp(rank, world_size, cfg):
 
     setup(rank, world_size)
 
+    cleanup()
+    return
     global logger
     logger = setup_logging()
     print_and_log("Starting training process", logging.INFO)
