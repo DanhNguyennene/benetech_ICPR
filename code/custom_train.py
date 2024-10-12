@@ -290,9 +290,9 @@ def run_evaluation(
 
 
 
-@hydra.main(version_base=None, config_path="../conf/r_final", config_name="conf_r_final")
-def run_training(cfg):
+def run_train_ddp(rank, world_size, cfg):
 
+    setup(rank, world_size)
 
     global logger
     logger = setup_logging()
@@ -329,7 +329,7 @@ def run_training(cfg):
         collate_fn=collate_fn,
         shuffle=True,
         num_workers=cfg.train_params.num_workers,
-        sampler=DistributedSampler(mga_train_ds),
+        sampler=DistributedSampler(mga_train_ds,num_replicas=world_size, rank=rank),
     )
 
     valid_dl = DataLoader(
@@ -338,7 +338,7 @@ def run_training(cfg):
         collate_fn=collate_fn,
         shuffle=False,
         num_workers=cfg.train_params.num_workers,
-        sampler=DistributedSampler(mga_valid_ds),
+        sampler=DistributedSampler(mga_valid_ds,num_replicas=world_size, rank=rank),
     )
 
     # ------- Wandb --------------------------------------------------------------------#
@@ -373,9 +373,10 @@ def run_training(cfg):
     model = ICPRModel(cfg)
     print_and_log(f"Model architecture:\n{model}", logging.DEBUG)
 
-    model = DDP(model, device_ids=[device], output_device=device)
+    model = model.to(rank)
 
-    model = model.to(device)
+    # Wrap model with DDP
+    model = DDP(model, device_ids=[rank])
     # model = model.to("cuda:0")
     # model = torch.compile(model)  # pytorch 2.0
 
@@ -460,6 +461,7 @@ def run_training(cfg):
     num_scatter = 0
 
     for epoch in tqdm(range(num_epochs), desc='Processing epoch...'):
+        train_sampler.set_epoch(epoch)
         epoch_progress = 0
         # close and reset progress bar
         if epoch != 0:
@@ -648,7 +650,7 @@ def run_training(cfg):
                     ema.restore()
 
                 print_line()
-
+                cleanup()
                 if patience_tracker >= cfg_dict['train_params']['patience']:
                     print("Early stopping triggered. Stopping training...")
                     model.eval()
@@ -660,6 +662,25 @@ def run_training(cfg):
                 #     model.eval()
                 #     return
 
+
+
+def main_ddp(world_size, cfg):
+    """Spawn multiple processes for DDP training."""
+    mp.spawn(
+        run_train_ddp,
+        args=(world_size, cfg),
+        nprocs=world_size,
+        join=True
+    )
+
+# Main entry point
+@hydra.main(version_base=None, config_path="../conf/r_final", config_name="conf_r_final")
+def run_training(cfg):
+    """Entry point for training, with Hydra config."""
+    world_size = torch.cuda.device_count()  # Get the number of available GPUs
+
+    # Start DDP training
+    main_ddp(world_size, cfg)
 
 if __name__ == "__main__":
     run_training()
