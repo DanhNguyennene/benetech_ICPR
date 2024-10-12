@@ -307,10 +307,6 @@ def run_train_ddp(rank, world_size, cfg):
     print_and_log(f"Train dataset size: {len(mga_train_ds)}, Valid dataset size: {len(mga_valid_ds)}", logging.INFO)
 
 
-
-
-
-    
     tokenizer = mga_train_ds.processor.tokenizer
     cfg.model.len_tokenizer = len(tokenizer)
 
@@ -378,9 +374,6 @@ def run_train_ddp(rank, world_size, cfg):
 
     # Wrap model with DDP
     model = DDP(model, device_ids=[rank])
-    # model = model.to("cuda:0")
-    # model = torch.compile(model)  # pytorch 2.0
-
     # ------- Optimizer ----------------------------------------------------------------#
     print_line()
     print("creating the optimizer...")
@@ -391,7 +384,6 @@ def run_train_ddp(rank, world_size, cfg):
         weight_decay=cfg.optimizer.weight_decay,
 
     )
-
     # ------- Scheduler -----------------------------------------------------------------#
     print_line()
     print("creating the scheduler...")
@@ -420,8 +412,8 @@ def run_train_ddp(rank, world_size, cfg):
     print("accelerator setup...")
 
     accelerator = Accelerator(
-        mixed_precision='bf16',  # or 'fp16' if you prefer
-        device_placement=True,   # Ensure proper device placement
+        mixed_precision='bf16',  
+        device_placement=True,  
     )  
 
     model, optimizer, train_dl, valid_dl = accelerator.prepare(
@@ -432,16 +424,12 @@ def run_train_ddp(rank, world_size, cfg):
     print(f"current GPU utilization...")
     print_gpu_utilization()
     print_line()
-
     # ------- training setup --------------------------------------------------------------#
     best_f1 = 0
     best_accuracy = 0
     save_trigger = cfg.train_params.save_trigger
     patience_tracker = 0
-
     min_delta = 0.001
-
-
     current_iteration = 0
 
     # ------- EMA -----------------------------------------------------------------------#
@@ -552,12 +540,7 @@ def run_train_ddp(rank, world_size, cfg):
                 f1 = f1_and_acc['f1_score']
                 acc = f1_and_acc['accuracy']
                 print_and_log(f"Evaluation results - F1 Score: {f1_and_acc['f1_score']:.4f}, Accuracy: {f1_and_acc['accuracy']:.4f}", logging.INFO)
-                
-
-                # lb = result_dict["lb"]
-                # oof_df = result_dict["oof_df"]
-                # result_df = result_dict["result_df"]
-                #
+        
                 print_line()
                 et = as_minutes(time.time()-start_time)
                 print(f">>> Epoch {epoch+1} | Step {step} | Total Step {current_iteration} | Time: {et}")
@@ -573,79 +556,17 @@ def run_train_ddp(rank, world_size, cfg):
                     best_accuracy = max(best_accuracy, acc)
                     patience_tracker = 0
                 else:
-                    # If no improvement, increment the patience counter
                     patience_tracker += 1
-
-                # if lb >= best_lb:
-                #     best_lb = lb
-                #     is_best = True
-                #     patience_tracker = 0
-                #
-                #     # ---
-                #     best_dict = dict()
-                #     for k, v in result_dict.items():
-                #         if "df" not in k:
-                #             best_dict[f"{k}_at_best"] = v
-                #
-                # else:
-                #     patience_tracker += 1
-                #
                 print_line()
                 print(f"Current f1_score: {round(f1,4)}")
                 print(f"Current accuracy score: {round(acc, 4)}")
 
-                # for k, v in result_dict.items():
-                #     if ("df" not in k) & (k != "lb"):
-                #         print(f">>> Current {k}={round(v, 4)}")
                 print_line()
-                
-                # if is_best:
-                #     oof_df.to_csv(os.path.join(cfg.outputs.model_dir, f"oof_df_fold_{fold}_best.csv"), index=False)
-                #     result_df.to_csv(os.path.join(cfg.outputs.model_dir, f"result_df_fold_{fold}_best.csv"), index=False)
-                #
-                # else:
-                #     print(f">>> patience reached {patience_tracker}/{cfg_dict['train_params']['patience']}")
-                #     print(f">>> current best score: {round(best_lb, 4)}")
-                #
-                # oof_df.to_csv(os.path.join(cfg_dict["outputs"]["model_dir"], f"oof_df_fold_{fold}.csv"), index=False)
-                # result_df.to_csv(os.path.join(cfg.outputs.model_dir, f"result_df_fold_{fold}.csv"), index=False)
-                #
-                # # save pickle for analysis
-                # result_df.to_pickle(os.path.join(cfg.outputs.model_dir, f"result_df_fold_{fold}.pkl"))
-
-                # saving -----
                 accelerator.wait_for_everyone()
                 model = accelerator.unwrap_model(model)
-                model_state = {
-                    'step': current_iteration,
-                    'epoch': epoch + 1,
-                    'state_dict': model.state_dict(),
-                    # 'lb': lb,
-                }
-
-                # if best_lb > save_trigger:
                 
-
-                # logging ----
-                # if cfg.use_wandb:
-                #     wandb.log({"lb": lb}, step=current_iteration)
-                #     wandb.log({"best_lb": best_lb}, step=current_iteration)
-
-                #     # ----
-                #     for k, v in result_dict.items():
-                #         if "df" not in k:
-                #             wandb.log({k: round(v, 4)}, step=current_iteration)
-
-                #     # --- log best scores dict
-                #     for k, v in best_dict.items():
-                #         if "df" not in k:
-                #             wandb.log({k: round(v, 4)}, step=current_iteration)
-
-                # -- post eval
                 model.train()
                 torch.cuda.empty_cache()
-
-                # ema ---
                 if cfg.train_params.use_ema:
                     ema.restore()
 
@@ -655,18 +576,21 @@ def run_train_ddp(rank, world_size, cfg):
                     print("Early stopping triggered. Stopping training...")
                     model.eval()
                     return
-
-                # early stopping ----
-                # if patience_tracker >= cfg_dict['train_params']['patience']:
-                #     print("stopping early")
-                #     model.eval()
-                #     retur
+        model_state = {
+                    'step': current_iteration,
+                    'epoch': epoch + 1,
+                    'state_dict': model.state_dict(),
+                }
         if epoch % cfg.train_params.epoch_saved == 0:
             if dist.get_rank() == 0:  
                     save_checkpoint(cfg_dict, model_state)
-        
+    model_state = {
+                    'step': current_iteration,
+                    'epoch': epoch + 1,
+                    'state_dict': model.state_dict(),
+                } 
     if dist.get_rank() == 0: 
-                    save_checkpoint(cfg_dict, model_state)
+        save_checkpoint(cfg_dict, model_state)
 
 
 
