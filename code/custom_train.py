@@ -586,7 +586,7 @@ def run_train_ddp(rank, world_size, cfg):
                     save_checkpoint(cfg_dict, model_state)
     model_state = {
                     'step': current_iteration,
-                    'epoch': epoch + 1,
+                    'epoch': num_epochs,
                     'state_dict': model.state_dict(),
                 } 
     if dist.get_rank() == 0: 
