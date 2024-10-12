@@ -36,9 +36,9 @@ class ICPRModel(nn.Module):
         )
 
         # resize model embeddings
-        # print("resizing model embeddings...")
-        # print(f"tokenizer length = {cfg.model.len_tokenizer}")
-        # self.backbone.decoder.resize_token_embeddings(cfg.model.len_tokenizer)
+        print("resizing model embeddings...")
+        print(f"tokenizer length = {cfg.model.len_tokenizer}")
+        self.backbone.decoder.resize_token_embeddings(cfg.model.len_tokenizer)
 
         self.loss_fn = nn.CrossEntropyLoss(
             ignore_index=-100,
