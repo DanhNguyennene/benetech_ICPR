@@ -624,8 +624,7 @@ def run_train_ddp(rank, world_size, cfg):
                 }
 
                 # if best_lb > save_trigger:
-                if dist.get_rank() == 0:  # Only the primary process saves the model
-                    save_checkpoint(cfg_dict, model_state)
+                
 
                 # logging ----
                 # if cfg.use_wandb:
@@ -661,7 +660,13 @@ def run_train_ddp(rank, world_size, cfg):
                 # if patience_tracker >= cfg_dict['train_params']['patience']:
                 #     print("stopping early")
                 #     model.eval()
-                #     return
+                #     retur
+        if epoch % cfg.train_params.epoch_saved == 0:
+            if dist.get_rank() == 0:  
+                    save_checkpoint(cfg_dict, model_state)
+        
+    if dist.get_rank() == 0: 
+                    save_checkpoint(cfg_dict, model_state)
 
 
 
