@@ -20,6 +20,13 @@ from omegaconf import OmegaConf
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
 from transformers import GenerationConfig, get_cosine_schedule_with_warmup
+from torch.nn import DataParallel
+from torch.nn.parallel import DistributedDataParallel as DDP
+import torch.distributed as dist
+from accelerate import Accelerator
+from torch.utils.data.distributed import DistributedSampler
+def init_process_group():
+    dist.init_process_group(backend='nccl', init_method='env://')
 
 TOKEN_MAP = {
   "axes": ["<axes>", "</axes>"],
@@ -73,6 +80,7 @@ def setup_logging(log_dir='logs'):
     logger.addHandler(f_handler)
 
     return logger
+
 
 
 def print_and_log(message, level=logging.INFO):
@@ -277,6 +285,7 @@ def run_training(cfg):
     logger = setup_logging()
     print_and_log("Starting training process", logging.INFO)
 
+    init_process_group()  # Initialize process group for DDP
     
     print_and_log("Loading datasets...", logging.INFO)
     train_parquet_path = cfg.custom.train_parquet_path
@@ -308,6 +317,7 @@ def run_training(cfg):
         collate_fn=collate_fn,
         shuffle=True,
         num_workers=cfg.train_params.num_workers,
+        sampler=DistributedSampler(mga_train_ds),
     )
 
     valid_dl = DataLoader(
@@ -316,6 +326,7 @@ def run_training(cfg):
         collate_fn=collate_fn,
         shuffle=False,
         num_workers=cfg.train_params.num_workers,
+        sampler=DistributedSampler(mga_valid_ds),
     )
 
     # ------- Wandb --------------------------------------------------------------------#
@@ -343,13 +354,17 @@ def run_training(cfg):
     cfg_dict = OmegaConf.to_container(cfg, resolve=True)
     print(json.dumps(cfg_dict, indent=4))
 
+    init_process_group()
+
     # ------- Model --------------------------------------------------------------------#
     print_line()
     print_and_log("Creating ICPR model...", logging.INFO)
     model = ICPRModel(cfg)
     print_and_log(f"Model architecture:\n{model}", logging.DEBUG)
 
-    # # # torch 2.0
+    model = DDP(model, device_ids=[device], output_device=device)
+
+    model = model.to(device)
     # model = model.to("cuda:0")
     # model = torch.compile(model)  # pytorch 2.0
 
@@ -392,11 +407,13 @@ def run_training(cfg):
     print("accelerator setup...")
 
     accelerator = Accelerator(
-        mixed_precision='bf16',  # changed 'fp16' to 'bf16'
+        mixed_precision='bf16',  # or 'fp16' if you prefer
+        device_placement=True,   # Ensure proper device placement
     )  
 
     model, optimizer, train_dl, valid_dl = accelerator.prepare(
-        model, optimizer, train_dl, valid_dl)
+        model, optimizer, train_dl, valid_dl
+    )
 
     print("model preparation done...")
     print(f"current GPU utilization...")
@@ -593,7 +610,8 @@ def run_training(cfg):
                 }
 
                 # if best_lb > save_trigger:
-                save_checkpoint(cfg_dict, model_state)
+                if dist.get_rank() == 0:  # Only the primary process saves the model
+                    save_checkpoint(cfg_dict, model_state)
 
                 # logging ----
                 # if cfg.use_wandb:
