@@ -141,7 +141,7 @@ class ICPRDataset(Dataset):
             
             chart_type = ground_truth.get('chart_type', 'unknown')  
 
-            text = tokenize_dict(ground_truth)  
+            _,text = tokenize_dict(ground_truth)  
 
             
             e_string = self.processor.tokenizer.eos_token
