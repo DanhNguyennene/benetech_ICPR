@@ -327,7 +327,6 @@ def run_train_ddp(rank, world_size, cfg):
         mga_train_ds,
         batch_size=cfg.train_params.train_bs,
         collate_fn=collate_fn,
-        shuffle=True,
         num_workers=cfg.train_params.num_workers,
         sampler=DistributedSampler(mga_train_ds,num_replicas=world_size, rank=rank),
     )
@@ -338,7 +337,6 @@ def run_train_ddp(rank, world_size, cfg):
         collate_fn=collate_fn,
         shuffle=False,
         num_workers=cfg.train_params.num_workers,
-        sampler=DistributedSampler(mga_valid_ds,num_replicas=world_size, rank=rank),
     )
 
     # ------- Wandb --------------------------------------------------------------------#
