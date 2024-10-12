@@ -323,7 +323,7 @@ def run_train_ddp(rank, world_size, cfg):
     collate_fn = ICPRCollator(tokenizer=tokenizer)
         
     train_sampler = torch.utils.data.distributed.DistributedSampler(
-        train_dataset, num_replicas=world_size, rank=rank
+        mga_train_ds, num_replicas=world_size, rank=rank
     )
 
     train_dl = DataLoader(
