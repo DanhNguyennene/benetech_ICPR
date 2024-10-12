@@ -22,21 +22,30 @@ from tqdm.auto import tqdm
 from transformers import GenerationConfig, get_cosine_schedule_with_warmup
 import torch.distributed as dist
 from accelerate import Accelerator
-
+import datetime
 import torch.multiprocessing as mp
 from torch.nn import DataParallel
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data.distributed import DistributedSampler
-def setup(rank, world_size):
+
+
+def setup(rank, world_size, timeout_minutes=60*60*5):
     """
-    Set up the process group for DDP on Kaggle with NCCL backend.
+    Set up the process group for DDP on Kaggle with NCCL backend with a timeout.
+
+    Parameters:
+    - rank: the rank of the process (each process should have a unique rank).
+    - world_size: total number of processes.
+    - timeout_minutes: timeout duration in minutes (default is 5 minutes).
     """
     os.environ['MASTER_ADDR'] = 'localhost'
-    os.environ['MASTER_PORT'] = '5553'  # Port must be free
+    os.environ['MASTER_PORT'] = '5553'  
 
-    # Initialize the process group with the correct backend (NCCL for GPUs)
-    dist.init_process_group("nccl", rank=rank, world_size=world_size)
-    torch.cuda.set_device(rank)  # Set the GPU device for each rank (process)
+    timeout = datetime.timedelta(minutes=timeout_minutes)
+    
+    dist.init_process_group(backend="nccl", rank=rank, world_size=world_size, timeout=timeout)
+    
+    torch.cuda.set_device(rank)
 
 def cleanup():
     """
@@ -95,10 +104,11 @@ def setup_logging(log_dir='logs'):
     logger.addHandler(f_handler)
 
     return logger
-
+logger = setup_logging()
 
 def print_and_log(message, level=logging.INFO):
     print(message)
+
     if level == logging.DEBUG:
         logger.debug(message)
     elif level == logging.INFO:
@@ -215,7 +225,10 @@ def run_evaluation(
         model, 
         valid_dl, 
         tokenizer, 
-        token_map):
+        token_map,
+        rank,
+        world_size
+    ):
 
     # # config for text generation ---
     conf_g = {
@@ -233,7 +246,11 @@ def run_evaluation(
     all_ids = []
     all_texts = []
     label_dict = []
-    progress_bar = tqdm(range(len(valid_dl)), desc='Running evaluation...')
+    
+    if rank == 0:
+        progress_bar = tqdm(range(len(valid_dl)), desc='Running evaluation...')
+    else:
+        progress_bar = None
 
 
     for batch in valid_dl:
@@ -252,39 +269,65 @@ def run_evaluation(
             all_ids.extend(batch_ids)
             all_texts.extend(generated_texts)
             label_dict.extend(batch['texts'])
-        progress_bar.update(1)
-    progress_bar.close()
+        if rank==0:
+            progress_bar.update(1)
+    if rank==0:
+        progress_bar.close()
 
-    label_dicts = [
-        post_processing(
-            label_str,
-            TOKEN_MAP,
-        ) for label_str in label_dict
-    ]
+    all_ids_gathered = [None for _ in range(world_size)]
+    all_texts_gathered = [None for _ in range(world_size)]
+    label_dict_gathered = [None for _ in range(world_size)]
 
-    # prepare output dataframe ---
-    preds_dict = []
-    for this_id, this_text in zip(all_ids, all_texts):
-        pred_dictionary = post_processing(this_text, token_map)
-        preds_dict.append((this_id,pred_dictionary))
-        
+    dist.all_gather_object(all_ids_gathered, all_ids)
+    dist.all_gather_object(all_texts_gathered, all_texts)
+    dist.all_gather_object(label_dict_gathered, label_dict)
 
-    eval_JSON = JSONParseEvaluator()
+    all_ids = []
+    all_texts = []
+    label_dict = []
 
-    f1_score = eval_JSON.cal_f1(
-        preds=preds_dict,
-        answers = label_dicts
-    )
+    for ids in all_ids_gathered:
+        all_ids.extend(ids)
 
-    accuracy = sum([eval_JSON.cal_acc(
-        pred=pred,
-        answer=label
-    ) for pred, label in zip(preds_dict, label_dicts)]) / len(preds_dict)
+    for texts in all_texts_gathered:
+        all_texts.extend(texts)
 
-    return {
-        'f1_score': f1_score,
-        'accuracy': accuracy
-    }
+    for labels in label_dict_gathered:
+        label_dict.extend(labels)
+
+    if rank == 0:
+
+        label_dicts = [
+            post_processing(
+                label_str,
+                TOKEN_MAP,
+            ) for label_str in label_dict
+        ]
+
+        # prepare output dataframe ---
+        preds_dict = []
+        for this_id, this_text in zip(all_ids, all_texts):
+            pred_dictionary = post_processing(this_text, token_map)
+            preds_dict.append((this_id,pred_dictionary))
+            
+
+        eval_JSON = JSONParseEvaluator()
+
+        f1_score = eval_JSON.cal_f1(
+            preds=preds_dict,
+            answers = label_dicts
+        )
+
+        accuracy = sum([eval_JSON.cal_acc(
+            pred=pred,
+            answer=label
+        ) for pred, label in zip(preds_dict, label_dicts)]) / len(preds_dict)
+
+        return {
+            'f1_score': f1_score,
+            'accuracy': accuracy
+        }
+    return None
 
 
 # -------- Main Function ---------------------------------------------------------#
@@ -295,8 +338,7 @@ def run_train_ddp(rank, world_size, cfg):
 
     setup(rank, world_size)
 
-    cleanup()
-    return
+  
     global logger
     logger = setup_logging()
     print_and_log("Starting training process", logging.INFO)
@@ -307,15 +349,8 @@ def run_train_ddp(rank, world_size, cfg):
     valid_parquet_path = cfg.custom.valid_parquet_path
     mga_valid_ds = ICPRDataset(cfg, valid_parquet_path)
     print_and_log(f"Train dataset size: {len(mga_train_ds)}, Valid dataset size: {len(mga_valid_ds)}", logging.INFO)
-
-
-
-
-
-    
     tokenizer = mga_train_ds.processor.tokenizer
     cfg.model.len_tokenizer = len(tokenizer)
-
     cfg.model.pad_token_id = tokenizer.pad_token_id
     cfg.model.decoder_start_token_id = tokenizer.convert_tokens_to_ids(BOS_TOKEN)[0]
     cfg.model.bos_token_id = tokenizer.convert_tokens_to_ids(BOS_TOKEN)[0]
@@ -334,14 +369,24 @@ def run_train_ddp(rank, world_size, cfg):
         collate_fn=collate_fn,
         num_workers=cfg.train_params.num_workers,
         sampler=train_sampler,
+        drop_last=True
+    )
+
+
+    valid_sampler = torch.utils.data.distributed.DistributedSampler(
+        mga_valid_ds,
+        num_replicas=world_size,
+        rank=rank,
+        shuffle=False
     )
 
     valid_dl = DataLoader(
-        mga_valid_ds,
+        valid_sampler,
         batch_size=cfg.train_params.valid_bs,
         collate_fn=collate_fn,
         shuffle=False,
         num_workers=cfg.train_params.num_workers,
+        drop_last=True
     )
 
     # ------- Wandb --------------------------------------------------------------------#
@@ -352,17 +397,7 @@ def run_train_ddp(rank, world_size, cfg):
         init_wandb(cfg_dict)
     print_line()
 
-    # --- show batch--------------------------------------------------------------------#
-    print_line()
-    for idx, b in enumerate(train_dl):
-        if idx == 16:
-            break
-        # run_sanity_check(cfg, b, tokenizer, prefix=f"train_{idx}")
 
-    for idx, b in enumerate(valid_dl):
-        if idx == 4:
-            break
-        # run_sanity_check(cfg, b, tokenizer, prefix=f"valid_{idx}")
 
     # ------- Config -------------------------------------------------------------------#
     print("config for the current run")
@@ -378,12 +413,10 @@ def run_train_ddp(rank, world_size, cfg):
 
     model = model.to(rank)
 
-    # Wrap model with DDP
+    
     model = DDP(model, device_ids=[rank])
-    # model = model.to("cuda:0")
-    # model = torch.compile(model)  # pytorch 2.0
+    
 
-    # ------- Optimizer ----------------------------------------------------------------#
     print_line()
     print("creating the optimizer...")
 
@@ -394,7 +427,6 @@ def run_train_ddp(rank, world_size, cfg):
 
     )
 
-    # ------- Scheduler -----------------------------------------------------------------#
     print_line()
     print("creating the scheduler...")
 
@@ -549,73 +581,34 @@ def run_train_ddp(rank, world_size, cfg):
                     valid_dl=valid_dl,
                     tokenizer=tokenizer,
                     token_map=TOKEN_MAP,
+                    rank=rank,
+                    world_size=world_size
                 )
-                
-                f1 = f1_and_acc['f1_score']
-                acc = f1_and_acc['accuracy']
-                print_and_log(f"Evaluation results - F1 Score: {f1_and_acc['f1_score']:.4f}, Accuracy: {f1_and_acc['accuracy']:.4f}", logging.INFO)
-                
-
-                # lb = result_dict["lb"]
-                # oof_df = result_dict["oof_df"]
-                # result_df = result_dict["result_df"]
-                #
+                if rank == 0:
+                    f1 = f1_and_acc['f1_score']
+                    acc = f1_and_acc['accuracy']
+                    print_and_log(f"Evaluation results - F1 Score: {f1_and_acc['f1_score']:.4f}, Accuracy: {f1_and_acc['accuracy']:.4f}", logging.INFO)
+            
                 print_line()
                 et = as_minutes(time.time()-start_time)
                 print(f">>> Epoch {epoch+1} | Step {step} | Total Step {current_iteration} | Time: {et}")
                 
-                is_best = False
 
                 f1_improved = (f1 - best_f1) > min_delta
                 accuracy_improved = (acc - best_accuracy) > min_delta
 
                 if f1_improved or accuracy_improved:
-                    # If there is an improvement, reset patience counter and save the best metrics
+                    
                     best_f1 = max(best_f1, f1)
                     best_accuracy = max(best_accuracy, acc)
                     patience_tracker = 0
                 else:
-                    # If no improvement, increment the patience counter
+                   
                     patience_tracker += 1
-
-                # if lb >= best_lb:
-                #     best_lb = lb
-                #     is_best = True
-                #     patience_tracker = 0
-                #
-                #     # ---
-                #     best_dict = dict()
-                #     for k, v in result_dict.items():
-                #         if "df" not in k:
-                #             best_dict[f"{k}_at_best"] = v
-                #
-                # else:
-                #     patience_tracker += 1
-                #
                 print_line()
                 print(f"Current f1_score: {round(f1,4)}")
                 print(f"Current accuracy score: {round(acc, 4)}")
-
-                # for k, v in result_dict.items():
-                #     if ("df" not in k) & (k != "lb"):
-                #         print(f">>> Current {k}={round(v, 4)}")
                 print_line()
-                
-                # if is_best:
-                #     oof_df.to_csv(os.path.join(cfg.outputs.model_dir, f"oof_df_fold_{fold}_best.csv"), index=False)
-                #     result_df.to_csv(os.path.join(cfg.outputs.model_dir, f"result_df_fold_{fold}_best.csv"), index=False)
-                #
-                # else:
-                #     print(f">>> patience reached {patience_tracker}/{cfg_dict['train_params']['patience']}")
-                #     print(f">>> current best score: {round(best_lb, 4)}")
-                #
-                # oof_df.to_csv(os.path.join(cfg_dict["outputs"]["model_dir"], f"oof_df_fold_{fold}.csv"), index=False)
-                # result_df.to_csv(os.path.join(cfg.outputs.model_dir, f"result_df_fold_{fold}.csv"), index=False)
-                #
-                # # save pickle for analysis
-                # result_df.to_pickle(os.path.join(cfg.outputs.model_dir, f"result_df_fold_{fold}.pkl"))
-
-                # saving -----
                 accelerator.wait_for_everyone()
                 model = accelerator.unwrap_model(model)
                 model_state = {
@@ -625,32 +618,20 @@ def run_train_ddp(rank, world_size, cfg):
                     # 'lb': lb,
                 }
 
-                # if best_lb > save_trigger:
-                if dist.get_rank() == 0:  # Only the primary process saves the model
+                if rank == 0:  
                     save_checkpoint(cfg_dict, model_state)
 
-                # logging ----
-                # if cfg.use_wandb:
-                #     wandb.log({"lb": lb}, step=current_iteration)
-                #     wandb.log({"best_lb": best_lb}, step=current_iteration)
-
-                #     # ----
-                #     for k, v in result_dict.items():
-                #         if "df" not in k:
-                #             wandb.log({k: round(v, 4)}, step=current_iteration)
-
-                #     # --- log best scores dict
-                #     for k, v in best_dict.items():
-                #         if "df" not in k:
-                #             wandb.log({k: round(v, 4)}, step=current_iteration)
-
-                # -- post eval
+                
                 model.train()
                 torch.cuda.empty_cache()
 
                 # ema ---
                 if cfg.train_params.use_ema:
-                    ema.restore()
+                    if rank == 0:
+                        ema.apply_shadow()
+                        ema.restore()
+                    else:
+                        pass
 
                 print_line()
                 cleanup()
@@ -658,12 +639,7 @@ def run_train_ddp(rank, world_size, cfg):
                     print("Early stopping triggered. Stopping training...")
                     model.eval()
                     return
-
-                # early stopping ----
-                # if patience_tracker >= cfg_dict['train_params']['patience']:
-                #     print("stopping early")
-                #     model.eval()
-                #     return
+    cleanup()
 
 
 
