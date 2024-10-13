@@ -290,22 +290,26 @@ def run_evaluation(
 # -------- Main Function ---------------------------------------------------------#
 
 
-
 def run_train_ddp(rank, world_size, cfg):
 
     setup(rank, world_size)
 
-    cleanup()
-    return
     global logger
     logger = setup_logging()
     print_and_log("Starting training process", logging.INFO)
     
     print_and_log("Loading datasets...", logging.INFO)
-    train_parquet_path = cfg.custom.train_parquet_path
-    mga_train_ds = ICPRDataset(cfg, train_parquet_path)
-    valid_parquet_path = cfg.custom.valid_parquet_path
-    mga_valid_ds = ICPRDataset(cfg, valid_parquet_path)
+    # train_parquet_path = cfg.custom.train_parquet_path
+    directory = cfg.competition_dataset.parquet_dict
+    train_files = glob.glob(os.path.join(directory, "train*.parquet"))
+
+
+    mga_train_ds = ICPRDataset(cfg, train_files)
+
+
+    # valid_parquet_path = cfg.custom.valid_parquet_path
+    valid_files = glob.glob(os.path.join(directory, "validation*.parquet"))
+    mga_valid_ds = ICPRDataset(cfg, valid_files)
     print_and_log(f"Train dataset size: {len(mga_train_ds)}, Valid dataset size: {len(mga_valid_ds)}", logging.INFO)
 
 
@@ -573,6 +577,7 @@ def run_train_ddp(rank, world_size, cfg):
                     ema.restore()
 
                 print_line()
+                cleanup()
                 if patience_tracker >= cfg_dict['train_params']['patience']:
                     print("Early stopping triggered. Stopping training...")
                     model.eval()
@@ -592,7 +597,6 @@ def run_train_ddp(rank, world_size, cfg):
                 } 
     if dist.get_rank() == 0: 
         save_checkpoint(cfg_dict, model_state)
-    cleanup()
 
 
 
