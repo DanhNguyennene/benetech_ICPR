@@ -573,7 +573,6 @@ def run_train_ddp(rank, world_size, cfg):
                     ema.restore()
 
                 print_line()
-                cleanup()
                 if patience_tracker >= cfg_dict['train_params']['patience']:
                     print("Early stopping triggered. Stopping training...")
                     model.eval()
@@ -593,6 +592,7 @@ def run_train_ddp(rank, world_size, cfg):
                 } 
     if dist.get_rank() == 0: 
         save_checkpoint(cfg_dict, model_state)
+    cleanup()
 
 
 
