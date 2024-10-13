@@ -517,7 +517,7 @@ def run_train_ddp(rank, world_size, cfg):
             # >-- evaluation ------------------------------------|
             # >--------------------------------------------------|
 
-            if (epoch_progress + 1) % cfg.train_params.eval_frequency == 0:
+            if (epoch + 1) % cfg.train_params.epoch_frequency == 0:
                 print("\n")
                 print("GPU Utilization before evaluation...")
                 print_gpu_utilization()
