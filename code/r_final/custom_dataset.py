@@ -144,8 +144,8 @@ class ICPRDataset(Dataset):
             _,text = tokenize_dict(ground_truth)  
 
             
-            e_string = self.processor.tokenizer.eos_token
-            res_text = f"{text}{e_string}"
+            # e_string = self.processor.tokenizer.eos_token
+            res_text = f"{text}"
             return res_text, chart_type
         except json.JSONDecodeError as e:
             print(f"Error decoding JSON for graph_id {graph_id}: {e}")
