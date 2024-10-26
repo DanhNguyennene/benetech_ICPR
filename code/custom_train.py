@@ -90,7 +90,7 @@ def run_train_ddp(rank, world_size, cfg):
         # Your existing setup and training code...
         
         # At the end of the training loop
-        for epoch in tqdm(range(num_epochs), desc='Processing epoch...'):
+    for epoch in tqdm(range(num_epochs), desc='Processing epoch...'):
             # Your training loop code...
 
     except Exception as e:
