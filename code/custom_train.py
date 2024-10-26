@@ -440,7 +440,7 @@ def run_train_ddp(rank, world_size, cfg):
                     }, step=current_iteration)
             if step % 500 == 0:
                 print_and_log(f"Epoch {epoch + 1}, Step {step + 1}/{len(train_dl)}, "
-                              f"Loss: {loss.item():.4f}, Average Loss: {loss_meter.avg:.4f}, "
+                              f"Loss: {loss.item():.4f}, Average Loss: {loss_meter.avg:.4f}, ",
                               logging.INFO)
                 # At the end of the epoch, log average metrics
         print_and_log(f"End of epoch {epoch + 1}: Average Loss: {loss_meter.avg}", logging.INFO)
