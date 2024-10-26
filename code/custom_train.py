@@ -314,18 +314,14 @@ def run_evaluation(
 
 
 def run_train_ddp(rank, world_size, cfg):
-    # Set up the process group for distributed training
-    setup(rank, world_size)
+    setup(rank, world_size)  # Set up process group for distributed training
 
-    global logger
     logger = setup_logging()
     print_and_log("Starting training process", logging.INFO)
     
-    print_and_log("Loading datasets...", logging.INFO)
+    # Load the datasets
     directory = cfg.competition_dataset.parquet_dict
     train_files = glob.glob(os.path.join(directory, "train*.parquet"))
-
-    # Load the dataset
     mga_train_ds = ICPRDataset(cfg, train_files)
 
     valid_files = glob.glob(os.path.join(directory, "validation*.parquet"))
@@ -334,123 +330,69 @@ def run_train_ddp(rank, world_size, cfg):
 
     tokenizer = mga_train_ds.processor.tokenizer
     cfg.model.len_tokenizer = len(tokenizer)
-
     cfg.model.pad_token_id = tokenizer.pad_token_id
     cfg.model.decoder_start_token_id = tokenizer.convert_tokens_to_ids(BOS_TOKEN)[0]
     cfg.model.bos_token_id = tokenizer.convert_tokens_to_ids(BOS_TOKEN)[0]
 
-    # ------- DataLoader Setup -------------------------------------------------------#
+    # Dataloader Setup
     collate_fn = ICPRCollator(tokenizer=tokenizer)
 
     if world_size > 1:
-        # For distributed training
-        train_sampler = torch.utils.data.distributed.DistributedSampler(
-            mga_train_ds, num_replicas=world_size, rank=rank
-        )
+        train_sampler = torch.utils.data.distributed.DistributedSampler(mga_train_ds, num_replicas=world_size, rank=rank)
         train_dl = DataLoader(
-            mga_train_ds,
-            batch_size=cfg.train_params.train_bs,
-            collate_fn=collate_fn,
-            num_workers=cfg.train_params.num_workers,
-            pin_memory=True,
-            sampler=train_sampler,
+            mga_train_ds, batch_size=cfg.train_params.train_bs, collate_fn=collate_fn,
+            num_workers=cfg.train_params.num_workers, pin_memory=True, sampler=train_sampler
         )
     else:
-        # For single GPU
         train_dl = DataLoader(
-            mga_train_ds,
-            batch_size=cfg.train_params.train_bs,
-            collate_fn=collate_fn,
-            num_workers=cfg.train_params.num_workers,
-            pin_memory=True,
-            shuffle=True  # Shuffle for single GPU
+            mga_train_ds, batch_size=cfg.train_params.train_bs, collate_fn=collate_fn,
+            num_workers=cfg.train_params.num_workers, pin_memory=True, shuffle=True
         )
 
-    # Validation DataLoader (not distributed)
     valid_dl = DataLoader(
-        mga_valid_ds,
-        batch_size=cfg.train_params.valid_bs,
-        collate_fn=collate_fn,
-        shuffle=False,
-        pin_memory=True,
-        num_workers=cfg.train_params.num_workers,
+        mga_valid_ds, batch_size=cfg.train_params.valid_bs, collate_fn=collate_fn,
+        shuffle=False, pin_memory=True, num_workers=cfg.train_params.num_workers,
     )
 
-    # ------- Wandb Initialization ---------------------------------------------------#
-    print_line()
+    # WandB Initialization
     if cfg.use_wandb:
-        print("initializing wandb run...")
         cfg_dict = OmegaConf.to_container(cfg, resolve=True)
         init_wandb(cfg_dict)
-    print_line()
 
-    # Print configuration
     print("config for the current run")
     cfg_dict = OmegaConf.to_container(cfg, resolve=True)
     print(json.dumps(cfg_dict, indent=4))
 
-    # ------- Model Creation ----------------------------------------------------------#
-    print_line()
-    print_and_log("Creating ICPR model...", logging.INFO)
+    # Model Creation and CUDA Placement
     model = ICPRModel(cfg)
-    print_and_log(f"Model architecture:\n{model}", logging.DEBUG)
+    model = model.cuda(rank)  # Move model to GPU at rank
 
-    model = model.to(rank)  # Move model to appropriate GPU
-
-    # Wrap model with DDP if more than one GPU
     if world_size > 1:
         model = DDP(model, device_ids=[rank])
 
-    # ------- Optimizer Setup ---------------------------------------------------------#
-    print_line()
-    print("creating the optimizer...")
+    # Optimizer and Scheduler Setup
     optimizer = torch.optim.AdamW(
-        model.parameters(),
-        lr=cfg.optimizer.lr,
-        weight_decay=cfg.optimizer.weight_decay,
+        model.parameters(), lr=cfg.optimizer.lr, weight_decay=cfg.optimizer.weight_decay
     )
 
-    # ------- Scheduler Setup ---------------------------------------------------------#
-    print_line()
-    print("creating the scheduler...")
     num_epochs = cfg.train_params.num_epochs
     grad_accumulation_steps = cfg.train_params.grad_accumulation
     warmup_pct = cfg.train_params.warmup_pct
 
     num_update_steps_per_epoch = len(train_dl) // grad_accumulation_steps
     num_training_steps = num_epochs * num_update_steps_per_epoch
-
     num_warmup_steps = int(warmup_pct * num_training_steps)
 
-    print(f"# training updates per epoch: {num_update_steps_per_epoch}")
-    print(f"# training steps: {num_training_steps}")
-    print(f"# warmup steps: {num_warmup_steps}")
-
     scheduler = get_cosine_schedule_with_warmup(
-        optimizer=optimizer,
-        num_warmup_steps=num_warmup_steps,
-        num_training_steps=num_training_steps
+        optimizer=optimizer, num_warmup_steps=num_warmup_steps, num_training_steps=num_training_steps
     )
 
-    # ------- Accelerator Setup -------------------------------------------------------#
-    print_line()
-    print("accelerator setup...")
-    accelerator = Accelerator(
-        mixed_precision='bf16',  
-        device_placement=True,  
-    )
+    # Accelerator setup explicitly with GPU
+    accelerator = Accelerator(mixed_precision='bf16', device_placement=True)  # Ensures CUDA compatibility
 
-    # Prepare model, optimizer, and DataLoader
-    model, optimizer, train_dl, valid_dl = accelerator.prepare(
-        model, optimizer, train_dl, valid_dl
-    )
-
-    print("model preparation done...")
-    print(f"current GPU utilization...")
-    print_gpu_utilization()
-    print_line()
-
-    # ------- Training Setup -----------------------------------------------------------#
+    model, optimizer, train_dl, valid_dl = accelerator.prepare(model, optimizer, train_dl, valid_dl)
+    
+    # Training Loop
     best_f1 = 0
     best_accuracy = 0
     save_trigger = cfg.train_params.save_trigger
@@ -458,165 +400,63 @@ def run_train_ddp(rank, world_size, cfg):
     min_delta = 0.001
     current_iteration = 0
 
-    # ------- EMA Setup ----------------------------------------------------------------#
-    if cfg.train_params.use_ema:
-        print_line()
-        decay_rate = cfg.train_params.decay_rate
-        ema = EMA(model, decay=decay_rate)
-        ema.register()
-
-        print(f"EMA will be used during evaluation with decay {round(decay_rate, 4)}...")
-        print_line()
-
-    # ------- Training Loop -----------------------------------------------------------#
-    start_time = time.time()
-    num_vbar = 0
-    num_hbar = 0
-    num_line = 0
-    num_scatter = 0
-
     for epoch in tqdm(range(num_epochs), desc='Processing epoch...'):
         if world_size > 1:
             train_sampler.set_epoch(epoch)
         
-        epoch_progress = 0
-        progress_bar = tqdm(range(num_update_steps_per_epoch))
         loss_meter = AverageMeter()
-        loss_meter_main = AverageMeter()
-        loss_meter_cls = AverageMeter()
-
         model.train()
         for step, batch in enumerate(train_dl):
-            num_vbar += len([ct for ct in batch['chart_type'] if ct == 'vertical_bar'])
-            num_hbar += len([ct for ct in batch['chart_type'] if ct == 'horizontal_bar'])
-            num_line += len([ct for ct in batch['chart_type'] if ct == 'line'])
-            num_scatter += len([ct for ct in batch['chart_type'] if ct == 'scatter'])
-
             loss, loss_dict = model(
                 flattened_patches=batch["flattened_patches"],
                 attention_mask=batch["attention_mask"],
                 labels=batch["labels"],
             )
             accelerator.backward(loss)
-            epoch_progress += 1
 
             if (step + 1) % grad_accumulation_steps == 0:
                 accelerator.clip_grad_norm_(model.parameters(), cfg.optimizer.grad_clip_value)
-
                 optimizer.step()
                 scheduler.step()
                 optimizer.zero_grad()
-
                 loss_meter.update(loss.item())
-                loss_meter_main.update(loss_dict["loss_main"].item())
-                loss_meter_cls.update(loss_dict["loss_cls"].item())
-
-                # EMA Update
-                if cfg.train_params.use_ema:
-                    ema.update()
-
-                progress_bar.set_description(
-                    f"STEP: {epoch_progress+1:5}/{len(train_dl):5}. "
-                    f"T-STEP: {current_iteration+1:5}/{num_training_steps:5}. "
-                    f"LR: {get_lr(optimizer):.4f}. "
-                    f"Loss: {loss_meter.avg:.4f}. "
-                )
-                progress_bar.update(1)
-                current_iteration += 1
 
                 # Logging with WandB
                 if cfg.use_wandb:
                     wandb.log({"train_loss": round(loss_meter.avg, 5)}, step=current_iteration)
-                    wandb.log({"main_loss": round(loss_meter_main.avg, 5)}, step=current_iteration)
-                    wandb.log({"cls_loss": round(loss_meter_cls.avg, 5)}, step=current_iteration)
+                current_iteration += 1
 
-                    wandb.log({"num_vbar": num_vbar}, step=current_iteration)
-                    wandb.log({"num_hbar": num_hbar}, step=current_iteration)
-                    wandb.log({"num_line": num_line}, step=current_iteration)
-                    wandb.log({"num_scatter": num_scatter}, step=current_iteration)
-
-                    wandb.log({"lr": get_lr(optimizer)}, step=current_iteration)
-
-            # Evaluation logic here...
-
+            # Evaluation and Early Stopping
             if (epoch + 1) % cfg.train_params.epoch_frequency == 0:
-                print("\nGPU Utilization before evaluation...")
-                print_gpu_utilization()
-
-                # Set model to eval mode
                 model.eval()
-
-                # Apply EMA if it is used
-                if cfg.train_params.use_ema:
-                    ema.apply_shadow()
-
-                f1_and_acc = run_evaluation(
-                    cfg,
-                    model=model,
-                    valid_dl=valid_dl,
-                    tokenizer=tokenizer,
-                    token_map=TOKEN_MAP,
-                )
-                
+                f1_and_acc = run_evaluation(cfg, model=model, valid_dl=valid_dl, tokenizer=tokenizer)
                 f1 = f1_and_acc['f1_score']
                 acc = f1_and_acc['accuracy']
-                print_and_log(f"Evaluation results - F1 Score: {f1:.4f}, Accuracy: {acc:.4f}", logging.INFO)
-                
-                print_line()
-                et = as_minutes(time.time() - start_time)
-                print(f">>> Epoch {epoch + 1} | Step {step} | Total Step {current_iteration} | Time: {et}")
-                
-                # Check for improvements and early stopping
+
                 if f1 > best_f1 + min_delta or acc > best_accuracy + min_delta:
-                    best_f1 = max(best_f1, f1)
-                    best_accuracy = max(best_accuracy, acc)
-                    patience_tracker = 0  # Reset patience
+                    best_f1, best_accuracy = max(best_f1, f1), max(best_accuracy, acc)
+                    patience_tracker = 0
                 else:
                     patience_tracker += 1
-                
+
                 if patience_tracker >= cfg_dict['train_params']['patience']:
                     print("Early stopping triggered. Stopping training...")
-                    model.eval()
                     return
 
-    # Final checkpoint saving
-    model_state = {
-        'step': current_iteration,
-        'epoch': num_epochs,
-        'state_dict': model.state_dict(),
-    }
     if dist.get_rank() == 0:
-        save_checkpoint(cfg_dict, model_state)
+        save_checkpoint(cfg_dict, {'step': current_iteration, 'epoch': num_epochs, 'state_dict': model.state_dict()})
 
-
-
-
-
+# Main DDP Setup
 def main_ddp(world_size, cfg):
-    """Spawn multiple processes for DDP training or run single-GPU training."""
-    cleanup_processes()  # Clean up before starting the training
-
+    cleanup_processes()
     if world_size > 1:
-        # Use Distributed Data Parallel (DDP)
-        mp.spawn(
-            run_train_ddp,
-            args=(world_size, cfg),
-            nprocs=world_size,
-            join=True
-        )
+        mp.spawn(run_train_ddp, args=(world_size, cfg), nprocs=world_size, join=True)
     else:
-        # Only one GPU available, call run_train_ddp with rank 0
-        run_train_ddp(rank=0, world_size=1, cfg=cfg)  # Adjusted call for single GPU
+        run_train_ddp(rank=0, world_size=1, cfg=cfg)
 
-
-
-# Main entry point
 @hydra.main(version_base=None, config_path="../conf/r_final", config_name="conf_r_final")
 def run_training(cfg):
-    """Entry point for training, with Hydra config."""
-    world_size = torch.cuda.device_count()  # Get the number of available GPUs
-
-    # Start DDP training
+    world_size = torch.cuda.device_count()  # Confirm available GPUs
     main_ddp(world_size, cfg)
 
 if __name__ == "__main__":
