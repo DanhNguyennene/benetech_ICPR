@@ -355,6 +355,7 @@ def run_train_ddp(rank, world_size, cfg):
         batch_size=cfg.train_params.train_bs,
         collate_fn=collate_fn,
         num_workers=cfg.train_params.num_workers,
+        pin_memory=True,
         sampler=train_sampler,
     )
 
@@ -363,6 +364,7 @@ def run_train_ddp(rank, world_size, cfg):
         batch_size=cfg.train_params.valid_bs,
         collate_fn=collate_fn,
         shuffle=False,
+        pin_memory=True,
         num_workers=cfg.train_params.num_workers,
     )
 
