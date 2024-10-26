@@ -443,7 +443,7 @@ def run_train_ddp(rank, world_size, cfg):
                     }, step=current_iteration)
 
                 # At the end of the epoch, log average metrics
-                print_and_log(f"End of epoch {epoch + 1}: Average Loss: {loss_meter.avg}", logging.INFO)
+        print_and_log(f"End of epoch {epoch + 1}: Average Loss: {loss_meter.avg}", logging.INFO)
 
         # Evaluation and Early Stopping
         if (epoch + 1) % cfg.train_params.epoch_frequency == 0:
