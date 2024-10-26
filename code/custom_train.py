@@ -315,7 +315,7 @@ def run_evaluation(
 
 def run_train_ddp(rank, world_size, cfg):
     setup(rank, world_size)  # Set up process group for distributed training
-    global logger;
+    global logger
     logger = setup_logging()
     print_and_log("Starting training process", logging.INFO)
     
@@ -406,7 +406,15 @@ def run_train_ddp(rank, world_size, cfg):
         
         loss_meter = AverageMeter()
         model.train()
+        
+        print_and_log(f"Starting epoch {epoch + 1}/{num_epochs}", logging.INFO)
+        
         for step, batch in enumerate(train_dl):
+            # Print a simple debug message every few steps
+            if step % 10 == 0:
+                print_and_log(f"Epoch {epoch + 1}, Step {step + 1}/{len(train_dl)}", logging.DEBUG)
+
+            # Training logic here
             loss, loss_dict = model(
                 flattened_patches=batch["flattened_patches"],
                 attention_mask=batch["attention_mask"],
@@ -426,22 +434,27 @@ def run_train_ddp(rank, world_size, cfg):
                     wandb.log({"train_loss": round(loss_meter.avg, 5)}, step=current_iteration)
                 current_iteration += 1
 
-            # Evaluation and Early Stopping
-            if (epoch + 1) % cfg.train_params.epoch_frequency == 0:
-                model.eval()
-                f1_and_acc = run_evaluation(cfg, model=model, valid_dl=valid_dl, tokenizer=tokenizer)
-                f1 = f1_and_acc['f1_score']
-                acc = f1_and_acc['accuracy']
+        # At the end of the epoch, log average metrics
+        print_and_log(f"End of epoch {epoch + 1}: Average Loss: {loss_meter.avg}", logging.INFO)
 
-                if f1 > best_f1 + min_delta or acc > best_accuracy + min_delta:
-                    best_f1, best_accuracy = max(best_f1, f1), max(best_accuracy, acc)
-                    patience_tracker = 0
-                else:
-                    patience_tracker += 1
+        # Evaluation and Early Stopping
+        if (epoch + 1) % cfg.train_params.epoch_frequency == 0:
+            model.eval()
+            f1_and_acc = run_evaluation(cfg, model=model, valid_dl=valid_dl, tokenizer=tokenizer)
+            f1 = f1_and_acc['f1_score']
+            acc = f1_and_acc['accuracy']
+            print_and_log(f"Evaluation - F1 Score: {f1:.4f}, Accuracy: {acc:.4f}", logging.INFO)
 
-                if patience_tracker >= cfg_dict['train_params']['patience']:
-                    print("Early stopping triggered. Stopping training...")
-                    return
+            # Early stopping logic
+            if f1 > best_f1 + min_delta or acc > best_accuracy + min_delta:
+                best_f1, best_accuracy = max(best_f1, f1), max(best_accuracy, acc)
+                patience_tracker = 0
+            else:
+                patience_tracker += 1
+
+            if patience_tracker >= cfg_dict['train_params']['patience']:
+                print_and_log("Early stopping triggered. Stopping training...", logging.INFO)
+                return
 
     if dist.get_rank() == 0:
         save_checkpoint(cfg_dict, {'step': current_iteration, 'epoch': num_epochs, 'state_dict': model.state_dict()})
