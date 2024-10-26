@@ -22,7 +22,9 @@ from tqdm.auto import tqdm
 from transformers import GenerationConfig, get_cosine_schedule_with_warmup
 import torch.distributed as dist
 from accelerate import Accelerator
-
+import subprocess
+import signal
+import psutil
 import torch.multiprocessing as mp
 from torch.nn import DataParallel
 from torch.nn.parallel import DistributedDataParallel as DDP
@@ -76,6 +78,49 @@ TOKEN_MAP = {
   "role": ["<role>", "</role>"],
   "bos_token" : ["</s>"]
 }
+
+def cleanup_processes():
+    """Clean up any hanging CUDA and Python processes."""
+    # Clear CUDA cache
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+        
+    # Kill any existing distributed processes
+    try:
+        if dist.is_initialized():
+            dist.destroy_process_group()
+    except:
+        pass
+    
+    # Clean up multiprocessing
+    for p in mp.active_children():
+        p.terminate()
+        p.join()
+    
+    # Find and kill Python processes using CUDA
+    current_pid = os.getpid()
+    for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+        try:
+            # Skip the current process
+            if proc.pid == current_pid:
+                continue
+                
+            # Check if it's a Python process
+            if 'python' in proc.info['name'].lower():
+                cmdline = ' '.join(proc.info['cmdline'] or [])
+                if 'train' in cmdline or 'cuda' in cmdline:
+                    print(f"Terminating process {proc.pid}")
+                    proc.terminate()
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            continue
+    
+    # Reset CUDA
+    try:
+        subprocess.run(['nvidia-smi', '--gpu-reset'], check=False)
+    except:
+        pass
+    
+    print("Cleanup completed")
 def setup_logging(log_dir='logs'):
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
@@ -602,6 +647,7 @@ def run_train_ddp(rank, world_size, cfg):
 
 def main_ddp(world_size, cfg):
     """Spawn multiple processes for DDP training."""
+    cleanup_processes();
     mp.spawn(
         run_train_ddp,
         args=(world_size, cfg),
