@@ -409,10 +409,10 @@ def run_train_ddp(rank, world_size, cfg):
         
         print_and_log(f"Starting epoch {epoch + 1}/{num_epochs}", logging.INFO)
         
-        for step, batch in enumerate(train_dl):
+        for step, batch in tqdm(enumerate(train_dl),desc = 'Training...'):
             # Print a simple debug message every few steps
-            if step % 10 == 0:
-                print_and_log(f"Epoch {epoch + 1}, Step {step + 1}/{len(train_dl)}", logging.DEBUG)
+            # if step % 10 == 0:
+            #     print_and_log(f"Epoch {epoch + 1}, Step {step + 1}/{len(train_dl)}", logging.DEBUG)
 
             # Training logic here
             loss, loss_dict = model(
