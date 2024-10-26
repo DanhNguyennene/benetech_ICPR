@@ -463,7 +463,19 @@ def run_train_ddp(rank, world_size, cfg):
             if patience_tracker >= cfg_dict['train_params']['patience']:
                 print_and_log("Early stopping triggered. Stopping training...", logging.INFO)
                 return
-
+                model_state = {
+                    'step': current_iteration,
+                    'epoch': epoch + 1,
+                    'state_dict': model.state_dict(),
+                }
+        model_state = {
+                    'step': current_iteration,
+                    'epoch': epoch + 1,
+                    'state_dict': model.state_dict(),
+                }
+        if epoch % cfg.train_params.epoch_saved == 0:
+            if dist.get_rank() == 0:  
+                    save_checkpoint(cfg_dict, model_state)
     if dist.get_rank() == 0:
         save_checkpoint(cfg_dict, {'step': current_iteration, 'epoch': num_epochs, 'state_dict': model.state_dict()})
 
