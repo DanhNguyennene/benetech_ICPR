@@ -79,26 +79,25 @@ TOKEN_MAP = {
   "bos_token" : ["</s>"]
 }
 
-def run_train_ddp(rank, world_size, cfg):
-    setup(rank, world_size)
-    
-    global logger
-    logger = setup_logging()
-    print_and_log("Starting training process", logging.INFO)
-
-    try:
-        # Your existing setup and training code...
+def cleanup_processes():
+    """Clean up any hanging CUDA and Python processes."""
+    # Clear CUDA cache
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
         
-        # At the end of the training loop
-        for epoch in tqdm(range(num_epochs), desc='Processing epoch...'):
-            # Your training loop code...
-
-    except Exception as e:
-        print(f"Error during training: {e}")
-        cleanup_processes()  # Ensure cleanup occurs on error
-
-    finally:
-        cleanup_processes()
+    # Kill any existing distributed processes
+    try:
+        if dist.is_initialized():
+            dist.destroy_process_group()
+    except:
+        pass
+    
+    # Clean up multiprocessing
+    for p in mp.active_children():
+        p.terminate()
+        p.join()
+    
+    print("Cleanup completed")
 def setup_logging(log_dir='logs'):
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
