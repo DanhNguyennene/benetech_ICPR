@@ -448,7 +448,7 @@ def run_train_ddp(rank, world_size, cfg):
         # Evaluation and Early Stopping
         if (epoch + 1) % cfg.train_params.epoch_frequency == 0:
             model.eval()
-            f1_and_acc = run_evaluation(cfg, model=model, valid_dl=valid_dl, tokenizer=tokenizer)
+            f1_and_acc = run_evaluation(cfg, model=model, valid_dl=valid_dl, tokenizer=tokenizer,TOKEN_MAP)
             f1 = f1_and_acc['f1_score']
             acc = f1_and_acc['accuracy']
             print_and_log(f"Evaluation - F1 Score: {f1:.4f}, Accuracy: {acc:.4f}", logging.INFO)
