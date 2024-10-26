@@ -409,7 +409,7 @@ def run_train_ddp(rank, world_size, cfg):
         
         print_and_log(f"Starting epoch {epoch + 1}/{num_epochs}", logging.INFO)
         
-        for step, batch in tqdm(enumerate(train_dl), desc='Training...'):
+        for step, batch in enumerate(train_dl):
             # Training logic
             loss, loss_dict = model(
                 flattened_patches=batch["flattened_patches"],
@@ -429,22 +429,21 @@ def run_train_ddp(rank, world_size, cfg):
                 # Update current iteration counter
                 current_iteration += 1
 
-        # Log the metrics to the console every 10 steps (adjust frequency as needed)
-        if step % 500 == 0:
-            print_and_log(f"Epoch {epoch + 1}, Step {step + 1}/{len(train_dl)}, "
-                          f"Loss: {loss.item():.4f}, Average Loss: {loss_meter.avg:.4f}, "
-                          f"Learning Rate: {scheduler.get_last_lr()[0]:.6f}", logging.INFO)
+                if step % 500 == 0:
+                    print_and_log(f"Epoch {epoch + 1}, Step {step + 1}/{len(train_dl)}, "
+                                  f"Loss: {loss.item():.4f}, Average Loss: {loss_meter.avg:.4f}, "
+                                  f"Learning Rate: {scheduler.get_last_lr()[0]:.6f}", logging.INFO)
 
-        # Logging with WandB
-        if cfg.use_wandb:
-            wandb.log({
-                "train_loss": round(loss_meter.avg, 5),
-                "step_loss": round(loss.item(), 5),
-                "learning_rate": scheduler.get_last_lr()[0]
-            }, step=current_iteration)
+                # Logging with WandB
+                if cfg.use_wandb:
+                    wandb.log({
+                        "train_loss": round(loss_meter.avg, 5),
+                        "step_loss": round(loss.item(), 5),
+                        "learning_rate": scheduler.get_last_lr()[0]
+                    }, step=current_iteration)
 
-        # At the end of the epoch, log average metrics
-        print_and_log(f"End of epoch {epoch + 1}: Average Loss: {loss_meter.avg}", logging.INFO)
+                # At the end of the epoch, log average metrics
+                print_and_log(f"End of epoch {epoch + 1}: Average Loss: {loss_meter.avg}", logging.INFO)
 
         # Evaluation and Early Stopping
         if (epoch + 1) % cfg.train_params.epoch_frequency == 0:
