@@ -77,7 +77,7 @@ def tokenize_dict(data: dict):
             return result
         elif isinstance(d, list):  
             try:
-                if isinstance(dict, d[0]) and (('x' in d[0] and 'y' in d[0]) or 'text' in d[0]):
+                if isinstance(d[0], dict) and (('x' in d[0] and 'y' in d[0]) or 'text' in d[0]):
                     return ''.join(recursive_tokenizer(item) for item in d)
                 return ' '.join(recursive_tokenizer(item) for item in d)
             except Exception as e:
