@@ -75,10 +75,14 @@ def tokenize_dict(data: dict):
                 value_string = recursive_tokenizer(value)
                 result += f"{start_token}{value_string}{end_token}"
             return result
-        elif isinstance(d, list):            
-            if ('x' in d[0] and 'y' in d[0]) or 'text' in d[0]:
-                return ''.join(recursive_tokenizer(item) for item in d)
-            return ' '.join(recursive_tokenizer(item) for item in d)
+        elif isinstance(d, list):  
+            try:
+                if isinstance(dict, d[0]) and (('x' in d[0] and 'y' in d[0]) or 'text' in d[0]):
+                    return ''.join(recursive_tokenizer(item) for item in d)
+                return ' '.join(recursive_tokenizer(item) for item in d)
+            except Exception as e:
+                print(e)
+                print(d)
         else:
             if type(d) == float:
                 return str(round(d, 2))
